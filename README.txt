@@ -9,25 +9,25 @@ CyberTools Suite is a powerful, offline-first digital investigation platform des
 ## 📸 Screenshots
 
 ### Dashboard
-![Dashboard](assets/screenshots/dashboard.png)
+![Dashboard](https://github.com/altaf-EH/cybertools-suite/raw/main/assets/screenshots/dashboard.png)
 
 ### CDR Analyzer
-![CDR Analyzer](assets/screenshots/cdr_analyzer.png)
+![CDR Analyzer](https://github.com/altaf-EH/cybertools-suite/raw/main/assets/screenshots/cdr_analyzer.png)
 
 ### Log Analyzer
-![Log Analyzer](assets/screenshots/log_analyzer.png)
+![Log Analyzer](https://github.com/altaf-EH/cybertools-suite/raw/main/assets/screenshots/log_analyzer.png)
 
 ### FinTrack
-![FinTrack](assets/screenshots/fintrack.png)
+![FinTrack](https://github.com/altaf-EH/cybertools-suite/raw/main/assets/screenshots/fintrack.png)
 
 ### Case Management
-![Case Management](assets/screenshots/case_management.png)
+![Case Management](https://github.com/altaf-EH/cybertools-suite/raw/main/assets/screenshots/case_management.png)
 
 ### Reports
-![Reports](assets/screenshots/reports.png)
+![Reports](https://github.com/altaf-EH/cybertools-suite/raw/main/assets/screenshots/reports.png)
 
 ### Settings
-![Settings](assets/screenshots/settings.png)
+![Settings](https://github.com/altaf-EH/cybertools-suite/raw/main/assets/screenshots/settings.png)
 
 ---
 
