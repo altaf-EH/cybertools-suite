@@ -1,0 +1,6 @@
+.venv/
+.env
+__pycache__/
+reports/
+loganalyzer_backup.py
+test_auth.log

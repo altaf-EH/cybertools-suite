@@ -1,0 +1,56 @@
+{
+    "patterns": [
+        {
+            "title": "Multiple Failed Logins from Single IP",
+            "description": "An IP address making multiple failed login attempts within a short time period - possible brute force attack."
+        },
+        {
+            "title": "Same-Day In-Out Fund Movement",
+            "description": "Account receiving funds and transferring them out on the same day - possible mule account or layering."
+        },
+        {
+            "title": "Odd-Hour Call Activity",
+            "description": "Calls made between 11PM-5AM - possible coordinated activity or evasion."
+        },
+        {
+            "title": "Multiple IMEI Swaps",
+            "description": "Number used with multiple IMEIs - possible handset swap or SIM swapping."
+        },
+        {
+            "title": "Funnel Account Pattern",
+            "description": "Account receiving from many distinct senders and concentrating to few destinations - possible mule funnel."
+        },
+        {
+            "title": "Round-Figure Transactions",
+            "description": "Multiple transactions with round amounts - possible structuring or layering."
+        },
+        {
+            "title": "High Pass-Through Ratio",
+            "description": "Account passing through most of received funds - classic mule account signature."
+        },
+        {
+            "title": "Closed-Loop Pair",
+            "description": "Two accounts only transacting with each other - possible coordinated operation."
+        },
+        {
+            "title": "Burner phone pattern",
+            "description": "A large number of very short duration calls (under 10 seconds) to many different numbers over a short time window."
+        },
+        {
+            "title": "Mule account layering",
+            "description": "Funds arrive from multiple senders into one account and are moved out within minutes/hours to another account, often just before the account is abandoned."
+        },
+        {
+            "title": "Odd-hour coordination",
+            "description": "Repeated calls or transactions clustered between 11 PM and 5 AM, outside the subject's normal activity pattern."
+        },
+        {
+            "title": "Rapid IMEI change",
+            "description": "A subscriber number switches to a completely different IMEI within a short period, suggesting SIM swapping or handset change to evade tracking."
+        },
+        {
+            "title": "Frequent small cash-outs",
+            "description": "Consistently withdrawing or transferring funds in small amounts just below reporting thresholds - possible structuring."
+        }
+    ]
+}

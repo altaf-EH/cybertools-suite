@@ -1,0 +1,22 @@
+CYBERTOOLS SUITE
+Copyright (c) 2026 CyberTools. All Rights Reserved.
+
+This software and all associated files, documentation, and materials
+are the exclusive property of CyberTools and are protected by
+international copyright laws.
+
+Unauthorized copying, distribution, modification, or commercial use
+of this software, in whole or in part, is strictly prohibited.
+
+By installing and using this software, you agree to:
+
+1. Use this software only for authorized investigations and legitimate purposes.
+2. Not redistribute, sell, or license this software to third parties.
+3. Not modify, reverse engineer, or create derivative works.
+4. Not remove or alter any copyright notices or branding.
+5. Accept that this software is provided "as is" without warranty of any kind.
+
+For licensing inquiries, contact: CyberTools
+
+This software may include third-party libraries and components,
+each with their own respective licenses.

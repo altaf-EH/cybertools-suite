@@ -1,0 +1,98 @@
+# CyberTools CDR Analyzer
+
+Advanced Call Detail Record (CDR) analysis tool for authorized cybercrime
+investigation and cyber cell use. Companion tool to
+[CyberTools Log Analyzer](https://github.com/altafreza345-gif/cybertools-log-analyzer).
+
+## Features
+
+- Flexible CSV/Excel ingestion — auto-detects common column name variants
+  used by different telecom operators (calling/called number, date/time,
+  duration, call type, tower/cell ID, IMEI/IMSI)
+- Per-number risk analysis (call volume, unique contacts, odd-hour activity)
+- IMEI switch detection (same number using multiple handsets)
+- Tower/cell activity summary
+- Link analysis — top contact pairs (who talks to whom, how often)
+- Heuristic risk scoring (LOW / MEDIUM / HIGH) with explained reasons
+- Three report formats generated every run:
+  - **PDF** — branded investigation report (CyberTools theme)
+  - **TXT** — plain-text report
+  - **XLSX** — 4-sheet workbook (Summary, Suspicious Numbers, Contact Pairs,
+    and full Raw CDR Records) for further sorting/filtering by
+    investigators/authorities
+
+## Installation
+
+### Linux / Kali Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+> On Kali/Debian systems, if `pip install` refuses to run outside a venv
+> with an "externally-managed-environment" error, either use the venv
+> above (recommended) or run:
+> `pip install -r requirements.txt --break-system-packages`
+
+### Windows
+
+```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## Usage
+
+```bash
+# Direct file path
+python3 cdr_analyzer.py path/to/cdr.csv
+
+# Or run with no argument — you'll be prompted for a path
+# (works with drag-and-drop from your file manager too)
+python3 cdr_analyzer.py
+```
+
+Reports are written to the `reports/` folder (PDF + TXT + XLSX, timestamped).
+
+## Expected CDR columns (flexible naming supported)
+
+| Standard field | Accepted aliases (case-insensitive) |
+|---|---|
+| calling_number | a_party, caller, calling_no, msisdn, a_number |
+| called_number | b_party, callee, called_no, b_number, destination_number |
+| date + time / datetime | call_date+call_time, start_datetime, timestamp |
+| duration | call_duration, duration_sec |
+| call_type | type, cdr_type, service_type |
+| tower_id | cell_id, cellid, site_id, lac_cell |
+| imei / imsi | imei_number, a_party_imei / imsi_number |
+
+Only `calling_number`, `called_number`, and a date/time field are required —
+everything else is optional.
+
+## Branding
+
+The PDF/report header uses `assets/cybertools_logo1.png`. Keep this folder
+alongside `cdr_analyzer.py` when cloning or moving the project.
+
+## Security & Privacy
+
+Intended for **defensive/authorized investigation and educational use only**.
+Only analyze CDR/IPDR data you are legally authorized to access. Do not
+commit real subscriber data or case files to this (or any public) repository.
+
+## Important Limitations
+
+Risk scores and flags are **investigative context, not proof**. A number's
+call pattern does not by itself establish identity or intent — verify all
+findings through proper legal process before drawing conclusions.
+
+## Author
+
+**Altaf** — part of the CyberTools suite.
+
+## License
+
+Creative Commons BY-NC-ND 4.0
