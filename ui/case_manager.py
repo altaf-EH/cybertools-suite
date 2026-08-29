@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+from ui.paths import get_data_dir, get_internal_dir
 import json
 import shutil
 import sys
@@ -14,15 +15,14 @@ if getattr(sys, 'frozen', False):
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
-# User data folders - AppData me create karo
-USER_DATA_DIR = Path.home() / "Documents" / "CyberTools Suite"
-CASES_DIR = USER_DATA_DIR / "cases"
-REPORTS_DIR = USER_DATA_DIR / "reports"
+# User data folders - user-selected folder me create karo
+USER_DATA_DIR = get_data_dir()
 
-# Pehle se ensure karo ki folder exist kare
-USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+CASES_DIR = USER_DATA_DIR / "cases"
 CASES_DIR.mkdir(parents=True, exist_ok=True)
-REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Internal bookkeeping - hamesha fixed AppData me, user ke folder me kabhi nahi
+REPORTS_DIR = get_internal_dir() / "reports"
 
 
 # ============================================================

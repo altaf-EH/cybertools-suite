@@ -1,6 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 from ui.report_index import ReportIndex
+from ui.paths import get_data_dir, get_internal_dir
 import  sys
 
 
@@ -9,15 +10,14 @@ if getattr(sys, 'frozen', False):
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
-# User data folders - AppData me create karo
-USER_DATA_DIR = Path.home() / "Documents" / "CyberTools Suite"
-USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+# User data folders - user-selected folder me create karo
+USER_DATA_DIR = get_data_dir()
 
 CASES_DIR = USER_DATA_DIR / "cases"
 CASES_DIR.mkdir(parents=True, exist_ok=True)
 
-REPORTS_DIR = USER_DATA_DIR / "reports"
-REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+# Internal bookkeeping - hamesha fixed AppData me, user ke folder me kabhi nahi
+REPORTS_DIR = get_internal_dir() / "reports"
 
 ENGINES_DIR = BASE_DIR / "engines"
 

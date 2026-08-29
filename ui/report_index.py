@@ -1,9 +1,9 @@
 from pathlib import Path
 from datetime import datetime
 import json
+from ui.paths import get_internal_dir
 
-USER_DATA_DIR = Path.home() / "Documents" / "CyberTools Suite"
-USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+USER_DATA_DIR = get_internal_dir()
 
 INDEX_FILE = USER_DATA_DIR / "reports_index.json"
 

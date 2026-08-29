@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QCheckBox,
+    QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.settings_manager import SettingsManager
+from ui.paths import DEFAULT_DATA_DIR
 from ui import ai_insights
 
 
@@ -91,6 +93,7 @@ class SettingsPage(QWidget):
         self.settings = SettingsManager.load()
 
         body.addWidget(self._build_api_panel())
+        body.addWidget(self._build_storage_panel())
         body.addWidget(self._build_ai_panel())
 
     # ========================================================
@@ -143,6 +146,99 @@ class SettingsPage(QWidget):
         layout.addLayout(row)
 
         return panel
+
+    # ========================================================
+    # STORAGE LOCATION PANEL
+    # ========================================================
+
+    def _build_storage_panel(self):
+
+        panel = QFrame()
+        panel.setObjectName("panel")
+
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(10)
+
+        title = QLabel("CASE DATA LOCATION")
+        title.setObjectName("sectionTitle")
+        layout.addWidget(title)
+
+        info = QLabel(
+            "Choose where CyberTools Suite saves your cases, evidence "
+            "and reports. Changing this requires restarting the app."
+        )
+        info.setObjectName("panelText")
+        info.setWordWrap(True)
+        layout.addWidget(info)
+
+        current_path = self.settings.get(
+            "data_directory",
+            str(DEFAULT_DATA_DIR),
+        )
+
+        self.storage_path_input = QLineEdit()
+        self.storage_path_input.setText(current_path)
+        self.storage_path_input.setObjectName("inputField")
+        self.storage_path_input.setReadOnly(True)
+        layout.addWidget(self.storage_path_input)
+
+        row = QHBoxLayout()
+
+        browse_button = QPushButton("BROWSE")
+        browse_button.setObjectName("secondaryButton")
+        browse_button.clicked.connect(self._browse_storage_path)
+
+        reset_button = QPushButton("RESET TO DEFAULT")
+        reset_button.setObjectName("secondaryButton")
+        reset_button.clicked.connect(self._reset_storage_path)
+
+        save_button = QPushButton("SAVE LOCATION")
+        save_button.setObjectName("primaryButton")
+        save_button.clicked.connect(self._save_storage_path)
+
+        row.addWidget(browse_button)
+        row.addWidget(reset_button)
+        row.addWidget(save_button)
+        row.addStretch()
+
+        layout.addLayout(row)
+
+        return panel
+
+    def _browse_storage_path(self):
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Select Case Data Folder",
+            self.storage_path_input.text(),
+        )
+
+        if folder:
+            self.storage_path_input.setText(folder)
+
+    def _reset_storage_path(self):
+        self.storage_path_input.setText(str(DEFAULT_DATA_DIR))
+
+    def _save_storage_path(self):
+        path = self.storage_path_input.text().strip()
+
+        if not path:
+            QMessageBox.warning(
+                self,
+                "Invalid Path",
+                "Please choose a valid folder.",
+            )
+            return
+
+        self.settings["data_directory"] = path
+        SettingsManager.save(self.settings)
+
+        QMessageBox.information(
+            self,
+            "Saved",
+            "Case data location saved. Please restart CyberTools Suite "
+            "for this change to take effect.",
+        )
 
     def _toggle_key_visibility(self, checked):
         self.api_key_input.setEchoMode(
