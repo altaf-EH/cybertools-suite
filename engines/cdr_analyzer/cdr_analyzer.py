@@ -17,7 +17,7 @@ from reportlab.lib.utils import ImageReader
 
 REPORT_DIR = "reports"
 # Supported file extensions
-SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xls", ".tsv", ".txt"}
+SUPPORTED_EXTENSIONS = {".csv", ".xlsx"}
 ODD_HOUR_START_MIN = 23 * 60        # 23:00
 ODD_HOUR_END_MIN = 5 * 60           # 05:00
 
@@ -216,15 +216,16 @@ COLUMN_ALIASES = {
 # ============================================================
 
 def get_cdr_path():
-    """Get CDR file path from command line, or prompt."""
     positional_args = [
         arg for arg in sys.argv[1:]
         if not arg.startswith("--")
     ]
 
     if positional_args:
-        return positional_args[0].strip().strip('"').strip("'")
-
+        path = positional_args[0].strip().strip('"').strip("'")
+        # 🔥 FIX: Normalize path (convert \ to /)
+        return os.path.normpath(path)
+    
     print()
     print("=" * 60)
     print("                    CDR ANALYZER")
@@ -232,7 +233,8 @@ def get_cdr_path():
     print()
 
     raw = input("Enter CDR file path: ").strip()
-    return raw.strip('"').strip("'")
+    path = raw.strip('"').strip("'")
+    return os.path.normpath(path)
 
 def get_output_dir():
     """Read --output flag from command line. Falls back to default."""
@@ -245,6 +247,8 @@ def get_output_dir():
 
 def validate_file(file_path):
     """Check if file exists and has supported extension."""
+    file_path = os.path.abspath(file_path)
+    
     if not os.path.exists(file_path):
         print(f"[ERROR] File not found: {file_path}")
         sys.exit(1)
@@ -252,7 +256,7 @@ def validate_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
         print(f"[ERROR] Unsupported file format: {ext}")
-        print("Supported formats: .csv, .xlsx, .xls, .tsv, .txt")
+        print("Supported formats: .csv, .xlsx, .xls, .tsv, .txt, .log")
         sys.exit(1)
     
     return True
@@ -375,27 +379,70 @@ def normalize_header(value):
     )
 
 
+def find_column(df, possible_names):
+    """Column dhundho chahe uska naam kuch bhi ho."""
+    for col in df.columns:
+        col_clean = str(col).strip().lower().replace(" ", "_").replace("-", "_")
+        for name in possible_names:
+            if name in col_clean:
+                return col
+    return None
+
+
 def normalize_columns(df):
+    """Normalize CDR columns - SMART + FAILPROOF version."""
+    
+    # 🔥 PEHLE: Smart column detection karo
+    calling_col = find_column(df, ['calling', 'caller', 'a_party', 'from', 'source', 'originating'])
+    called_col = find_column(df, ['called', 'callee', 'b_party', 'to', 'destination', 'terminating'])
+    date_col = find_column(df, ['date', 'call_date', 'start_date', 'event_date'])
+    time_col = find_column(df, ['time', 'call_time', 'start_time', 'event_time'])
+    datetime_col = find_column(df, ['datetime', 'timestamp', 'call_datetime', 'event_datetime'])
+    duration_col = find_column(df, ['duration', 'call_duration', 'talk_time', 'talktime'])
+    tower_col = find_column(df, ['tower', 'cell', 'site', 'lac', 'cell_id', 'tower_id'])
+    imei_col = find_column(df, ['imei', 'device', 'handset'])
+    imsi_col = find_column(df, ['imsi', 'sim'])
+    
+    # 🔥 RENAME MAP BANAYO
     rename_map = {}
-
-    normalized_columns = {
-        normalize_header(column): column
-        for column in df.columns
-    }
-
-    for standard_name, aliases in COLUMN_ALIASES.items():
-
-        normalized_aliases = {
-            normalize_header(alias)
-            for alias in aliases
+    
+    if calling_col:
+        rename_map[calling_col] = "calling_number"
+    if called_col:
+        rename_map[called_col] = "called_number"
+    if date_col:
+        rename_map[date_col] = "date"
+    if time_col:
+        rename_map[time_col] = "time"
+    if datetime_col:
+        rename_map[datetime_col] = "datetime"
+    if duration_col:
+        rename_map[duration_col] = "duration"
+    if tower_col:
+        rename_map[tower_col] = "tower_id"
+    if imei_col:
+        rename_map[imei_col] = "imei"
+    if imsi_col:
+        rename_map[imsi_col] = "imsi"
+    
+    # 🔥 FALLBACK: Agar kuch column nahi mila toh purane COLUMN_ALIASES ka use karo
+    if not rename_map:
+        print("[!] Smart detection failed, falling back to alias mapping...")
+        normalized_columns = {
+            normalize_header(column): column
+            for column in df.columns
         }
-
-        for alias in normalized_aliases:
-            if alias in normalized_columns:
-                original_column = normalized_columns[alias]
-                rename_map[original_column] = standard_name
-                break
-
+        for standard_name, aliases in COLUMN_ALIASES.items():
+            normalized_aliases = {
+                normalize_header(alias)
+                for alias in aliases
+            }
+            for alias in normalized_aliases:
+                if alias in normalized_columns:
+                    original_column = normalized_columns[alias]
+                    rename_map[original_column] = standard_name
+                    break
+    
     return df.rename(columns=rename_map)
 
 
@@ -422,56 +469,134 @@ def build_datetime_column(df):
 
 
 def parse_cdr(cdr_path):
-    """Load and normalize a CDR file (CSV or Excel)."""
-    ext = os.path.splitext(cdr_path)[1].lower()
-
-    try:
-        if ext in (".xlsx", ".xls"):
-            df = pd.read_excel(cdr_path)
-        else:
-            # CSV/TSV - try multiple encodings
-            for encoding in ("utf-8-sig", "utf-8", "latin1", "cp1252"):
-                try:
-                    df = pd.read_csv(cdr_path, encoding=encoding)
-                    break
-                except Exception:
-                    continue
-            else:
-                raise ValueError("Unable to read CSV file with any encoding")
-    except Exception as error:
-        print(f"[ERROR] Unable to read CDR file: {error}")
+    """Load and normalize a CDR file - FULLY FAILPROOF."""
+    cdr_path = os.path.abspath(cdr_path)
+    
+    if not os.path.exists(cdr_path):
+        print(f"[ERROR] File not found in parse_cdr: {cdr_path}")
         sys.exit(1)
-
+    
+    ext = os.path.splitext(cdr_path)[1].lower()
+    df = None
+    
+    # ============================================================
+    # EXCEL FILES (.xlsx, .xls)
+    # ============================================================
+    if ext in (".xlsx", ".xls"):
+        print("[*] Reading Excel file...")
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(cdr_path, data_only=True)
+            sheet_names = wb.sheetnames
+        
+            if not sheet_names:
+                print("[!] Excel file has no worksheets. Trying to read as TSV/CSV...")
+                try:
+                    df = pd.read_csv(cdr_path, sep='\t', encoding='utf-8-sig')
+                    print("[+] Read as TSV (fallback)")
+                except:
+                    df = pd.read_csv(cdr_path, encoding='utf-8-sig')
+                    print("[+] Read as CSV (fallback)")
+            else:
+                print(f"[+] Found {len(sheet_names)} worksheet(s): {sheet_names}")
+                df = pd.read_excel(cdr_path, engine='openpyxl', sheet_name=sheet_names[0])
+                df = df.dropna(how='all')
+                print(f"[+] Excel loaded: {len(df)} rows")
+        
+        except Exception as e:
+            print(f"[!] Excel read error: {e}")
+            print("[!] Trying to read as TSV/CSV...")
+            try:
+                df = pd.read_csv(cdr_path, sep='\t', encoding='utf-8-sig')
+                print("[+] Read as TSV (fallback)")
+            except:
+                df = pd.read_csv(cdr_path, encoding='utf-8-sig')
+                print("[+] Read as CSV (fallback)")
+    
+    # ============================================================
+    # TEXT FILES (.csv, .tsv, .txt)
+    # ============================================================
+    else:
+        print("[*] Reading text file...")
+        
+        with open(cdr_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
+            first_line = f.readline()
+        
+        # SMART DELIMITER DETECTION
+        if '\t' in first_line:
+            sep = '\t'
+            print("[+] Detected: Tab separated (TSV)")
+        elif ',' in first_line:
+            sep = ','
+            print("[+] Detected: Comma separated (CSV)")
+        elif ';' in first_line:
+            sep = ';'
+            print("[+] Detected: Semicolon separated")
+        else:
+            sep = '\s+'
+            print("[+] Detected: Space separated (TXT) - using regex")
+        
+        try:
+            if sep == '\s+':
+                df = pd.read_csv(cdr_path, sep=sep, encoding='utf-8-sig', engine='python')
+            else:
+                df = pd.read_csv(cdr_path, sep=sep, encoding='utf-8-sig')
+        except Exception as e:
+            print(f"[!] Error: {e}, trying fallback...")
+            df = pd.read_csv(cdr_path, sep=None, encoding='utf-8-sig', engine='python')
+    
+    # ============================================================
+    # VALIDATE DF
+    # ============================================================
+    if df is None or df.empty:
+        print("[ERROR] File contains no readable rows.")
+        sys.exit(1)
+    
+    # ============================================================
+    # NORMALIZE COLUMNS
+    # ============================================================
     df = normalize_columns(df)
-
+    
     required = ["calling_number", "called_number"]
     missing = [c for c in required if c not in df.columns]
-
+    
     if missing:
         print(f"[ERROR] Missing required column(s): {missing}")
         print(f"Detected columns: {list(df.columns)}")
-        print("Please ensure the file has 'calling_number' and 'called_number' columns.")
         sys.exit(1)
-
+    
+    # ============================================================
+    # BUILD DATETIME
+    # ============================================================
     df = build_datetime_column(df)
-
-    df["duration"] = pd.to_numeric(df["duration"], errors="coerce").fillna(0) if "duration" in df.columns else 0
-    df["call_type"] = df["call_type"].fillna("UNKNOWN") if "call_type" in df.columns else "UNKNOWN"
-
-    for optional in ("tower_id", "imei", "imsi"):
+    
+    # ============================================================
+    # DURATION
+    # ============================================================
+    if "duration" in df.columns:
+        df["duration"] = pd.to_numeric(df["duration"], errors="coerce").fillna(0)
+    else:
+        df["duration"] = 0
+    
+    # ============================================================
+    # OPTIONAL COLUMNS
+    # ============================================================
+    for optional in ("tower_id", "imei", "imsi", "call_type"):
         if optional not in df.columns:
             df[optional] = None
-
+    
+    # ============================================================
+    # CLEAN STRINGS
+    # ============================================================
     df["calling_number"] = df["calling_number"].astype(str).str.strip()
     df["called_number"] = df["called_number"].astype(str).str.strip()
-
-    # Remove empty rows
+    
     df = df[(df["calling_number"] != "") & (df["called_number"] != "")]
-
+    
     if df.empty:
         print("[ERROR] No valid CDR records found after cleaning.")
         sys.exit(1)
-
+    
     return df.sort_values("datetime").reset_index(drop=True)
 
 
@@ -665,63 +790,6 @@ def print_terminal_report(report_time, total_records, unique_numbers, overall_ri
         print(f"  {pair[0]} <-> {pair[1]}   calls={count}   total_duration={dur}s")
 
     print()
-
-
-# ============================================================
-# TXT REPORT
-# ============================================================
-
-def generate_txt_report(path, report_time, total_records, unique_numbers, overall_risk,
-                         overall_reasons, number_results, pairs):
-
-    with open(path, "w", encoding="utf-8") as report:
-
-        report.write("=" * 90 + "\n")
-        report.write("CDR ANALYSIS REPORT\n")
-        report.write("=" * 90 + "\n")
-        report.write(f"Generated: {report_time}\n")
-        report.write(f"Total Records   : {total_records}\n")
-        report.write(f"Unique Numbers  : {unique_numbers}\n")
-        report.write(f"Overall Risk    : {overall_risk}\n\n")
-
-        report.write("Overall Risk Reasons:\n")
-        for reason in overall_reasons:
-            report.write(f"  - {reason}\n")
-        report.write("\n")
-
-        report.write("-" * 90 + "\n")
-        report.write("SUSPICIOUS NUMBER ANALYSIS\n")
-        report.write("-" * 90 + "\n\n")
-
-        for result in number_results:
-            report.write(f"#{result['rank']}  {result['number']}   "
-                         f"Risk: {result['risk']} ({result['risk_score']}/90)\n")
-            report.write(f"  Records          : {result['records']}\n")
-            report.write(f"  First Seen       : {result['first_seen']}\n")
-            report.write(f"  Last Seen        : {result['last_seen']}\n")
-            report.write(f"  Duration         : {result['duration']}\n")
-            report.write(f"  Call Frequency   : {result['speed']} ({result['rate']:.2f}/hour)\n")
-            report.write(f"  Unique Contacts  : {result['unique_contacts']}\n")
-            report.write(f"  Total Talk-time  : {result['total_talktime']}s\n")
-            report.write(f"  Avg Call Duration: {result['avg_duration']}s\n")
-            report.write(f"  Odd-Hour Records : {result['odd_hour_count']}\n")
-            report.write(f"  Short Calls (<5s): {result['short_calls']}\n")
-            report.write(f"  IMEIs Used       : {result['imei_count']}\n")
-            report.write(f"  Top Tower/Cell   : {result['top_tower']}\n")
-            report.write(f"  Call Types       : {result['call_type_text']}\n")
-            report.write(f"  Top Contacts     : {', '.join(result['top_contacts']) if result['top_contacts'] else 'None'}\n")
-            report.write("  Analysis Reasons:\n")
-            for reason in result["reasons"]:
-                report.write(f"    * {reason}\n")
-            report.write("\n" + "-" * 90 + "\n\n")
-
-        report.write("TOP CONTACT PAIRS (LINK ANALYSIS)\n")
-        report.write("-" * 90 + "\n")
-        for pair, count, dur in pairs:
-            report.write(f"  {pair[0]} <-> {pair[1]}   calls={count}   total_duration={dur}s\n")
-
-        report.write("\nGenerated by CyberTools CDR Analyzer\n")
-
 
 # ============================================================
 # XLSX REPORT (for police / authorities - sortable, filterable)
@@ -1179,12 +1247,15 @@ def main():
     check_args()
     cdr_path = get_cdr_path()
     
-    # Validate file
+    # 🔥 FIX: Validate and get absolute path
     validate_file(cdr_path)
+    cdr_path = os.path.abspath(cdr_path)
+    print(f"[+] Input file: {cdr_path}")
     
     # Get output directory
     output_dir = get_output_dir()
     os.makedirs(output_dir, exist_ok=True)
+    print(f"[+] Output directory: {output_dir}")
 
     df = parse_cdr(cdr_path)
 
@@ -1204,21 +1275,15 @@ def main():
     report_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
     report_file_time = current_time.strftime("%Y%m%d_%H%M%S")
 
-    txt_path = os.path.join(output_dir, f"cdr_report_{report_file_time}.txt")
+    # SIRF PDF - baaki sab HATANA
     pdf_path = os.path.join(output_dir, f"cdr_report_{report_file_time}.pdf")
-    xlsx_path = os.path.join(output_dir, f"cdr_report_{report_file_time}.xlsx")
 
     print_terminal_report(report_time, total_records, unique_numbers, overall_risk,
                            overall_reasons, number_results, pairs)
 
-    generate_txt_report(txt_path, report_time, total_records, unique_numbers, overall_risk,
-                         overall_reasons, number_results, pairs)
-
+    # SIRF PDF generate karo
     generate_pdf_report(pdf_path, report_time, total_records, unique_numbers, overall_risk,
                          overall_reasons, number_results, pairs)
-
-    generate_xlsx_report(xlsx_path, report_time, total_records, unique_numbers, overall_risk,
-                          overall_reasons, number_results, pairs, df)
 
     print()
     print("=" * 70)
@@ -1226,8 +1291,6 @@ def main():
     print("Powered by CyberTools")
     print()
     print("PDF Report Saved  :", pdf_path)
-    print("TXT Report Saved  :", txt_path)
-    print("XLSX Report Saved :", xlsx_path)
     print("=" * 70)
     print()
 

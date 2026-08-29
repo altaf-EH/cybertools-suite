@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+from ui.report_index import ReportIndex
 import  sys
 
 
@@ -9,7 +10,7 @@ else:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
 # User data folders - AppData me create karo
-USER_DATA_DIR = Path.home() / "AppData" / "Local" / "CyberTools Suite"
+USER_DATA_DIR = Path.home() / "Documents" / "CyberTools Suite"
 USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 CASES_DIR = USER_DATA_DIR / "cases"
@@ -55,31 +56,12 @@ def get_active_cases():
 
 
 def get_all_reports():
-    """Get all reports from both cases/ and reports/ folders."""
-    all_reports = []
-    
-    # Case reports
-    if CASES_DIR.exists():
-        for case_dir in CASES_DIR.iterdir():
-            if not case_dir.is_dir():
-                continue
-            reports_dir = case_dir / "reports"
-            if reports_dir.exists():
-                for file in reports_dir.rglob("*"):
-                    if file.is_file() and file.suffix.lower() in {".pdf", ".txt", ".xlsx", ".csv", ".json", ".html"}:
-                        all_reports.append(file)
-    
-    # Global reports
-    if REPORTS_DIR.exists():
-        for file in REPORTS_DIR.rglob("*"):
-            if file.is_file() and file.suffix.lower() in {".pdf", ".txt", ".xlsx", ".csv", ".json", ".html"}:
-                all_reports.append(file)
-    
-    return all_reports
+    """Central registry se sabhi reports — kahi bhi save hui ho."""
+    return [entry["path"] for entry in ReportIndex.get_all()]
 
 
 def get_reports():
-    return len(get_all_reports())
+    return len(ReportIndex.get_all())
 
 def get_engines():
     if not ENGINES_DIR.exists():
@@ -92,47 +74,32 @@ def get_engines():
 
 
 def get_recent_activity(limit=6):
+    entries = ReportIndex.get_all()[:limit]
 
     items = []
-
-    for root in (CASES_DIR, REPORTS_DIR):
-
-        if not root.exists():
+    for entry in entries:
+        try:
+            ts = datetime.fromisoformat(entry["timestamp"])
+        except Exception:
             continue
 
-        for file in root.rglob("*"):
+        items.append({
+            "name": entry["name"],
+            "path": entry["path"],
+            "timestamp": ts.timestamp(),
+            "time": ts,
+        })
 
-            if not file.is_file():
-                continue
-
-            # Only include relevant files
-            if file.suffix.lower() not in {".pdf", ".txt", ".xlsx", ".csv", ".json", ".html", ".log"}:
-                continue
-
-            try:
-                timestamp = file.stat().st_mtime
-            except OSError:
-                continue
-
-            items.append({
-                "name": file.name,
-                "path": str(file),
-                "timestamp": timestamp,
-                "time": datetime.fromtimestamp(timestamp)
-            })
-
-    items.sort(
-        key=lambda x: x["timestamp"],
-        reverse=True
-    )
-
-    return items[:limit]
+    return items
 
 def get_system_stats():
+    active_cases = 0
+    if CASES_DIR.exists():
+        active_cases = len([d for d in CASES_DIR.iterdir() if d.is_dir()])
 
     return {
-        "active_cases": get_active_cases(),
+        "active_cases": active_cases,
         "reports": get_reports(),
         "engines": get_engines(),
-        "recent_activity": get_recent_activity()
+        "recent_activity": get_recent_activity(),
     }

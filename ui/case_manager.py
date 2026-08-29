@@ -15,7 +15,7 @@ else:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
 # User data folders - AppData me create karo
-USER_DATA_DIR = Path.home() / "AppData" / "Local" / "CyberTools Suite"
+USER_DATA_DIR = Path.home() / "Documents" / "CyberTools Suite"
 CASES_DIR = USER_DATA_DIR / "cases"
 REPORTS_DIR = USER_DATA_DIR / "reports"
 

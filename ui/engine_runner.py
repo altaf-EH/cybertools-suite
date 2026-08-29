@@ -1,4 +1,5 @@
 from pathlib import Path
+from ui.report_index import ReportIndex
 import subprocess
 import sys
 import shutil
@@ -15,7 +16,7 @@ else:
     BASE_DIR = Path(__file__).resolve().parent.parent
 
 # User data folders - AppData me create karo
-USER_DATA_DIR = Path.home() / "AppData" / "Local" / "CyberTools Suite"
+USER_DATA_DIR = Path.home() / "Documents" / "CyberTools Suite"
 USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 CASES_DIR = USER_DATA_DIR / "cases"
@@ -253,18 +254,13 @@ class EngineRunner:
         # SAB ENGINES KO --output FLAG PASS KARO
         # ----------------------------------------------------
 
+        # 🔥 FIXED: Ensure file path is passed correctly
         command = [
-
-            "python",
-
+            sys.executable,  # Python executable (venv/system)
             str(script),
-
-            str(input_path),
-
+            str(input_path.resolve()),  # Absolute path
             "--output",
-
-            str(output_path),
-
+            str(output_path.resolve()),  # Absolute path
         ]
 
 
@@ -481,6 +477,10 @@ class EngineRunner:
     # RUN ENGINE
     # ========================================================
 
+        # ========================================================
+    # RUN ENGINE
+    # ========================================================
+
     @classmethod
     def run(
         cls,
@@ -538,15 +538,15 @@ class EngineRunner:
 
             )
 
-
-            # IMPORTANT:
-            # Return the actual Popen object.
-            # UI worker can safely call communicate()
-            # on this object.
+            # 🔥 Process ko context ke andar hi rakh do,
+            # taaki caller (dashboard.py) process khatam hone ke baad
+            # isi context se finalize_run() call kar sake aur
+            # reports ko ReportIndex me register kar sake.
+            context["process"] = process
 
             return (
                 True,
-                process,
+                context,
             )
 
 
@@ -610,7 +610,7 @@ class EngineRunner:
 
         if output_dir:
 
-            return [
+            reports = [
                 path
                 for path in Path(
                     output_dir
@@ -622,13 +622,33 @@ class EngineRunner:
                 )
             ]
 
+        else:
+
+            # ----------------------------------------------------
+            # FALLBACK: COLLECT FROM ENGINE DIR
+            # ----------------------------------------------------
+
+            reports = cls.collect_reports(
+                engine_dir,
+                case_id,
+                before_files,
+            )
+
 
         # ----------------------------------------------------
-        # FALLBACK: COLLECT FROM ENGINE DIR
+        # 🔥 CENTRAL REGISTRY ME REGISTER KARO
+        # Report chahe kahi bhi save hui ho (case folder, global
+        # reports folder, ya user ka koi bhi custom folder) —
+        # ab Dashboard aur Reports page hamesha isse dhoondh lenge.
         # ----------------------------------------------------
 
-        return cls.collect_reports(
-            engine_dir,
-            case_id,
-            before_files,
-        )
+        for report_path in reports:
+
+            ReportIndex.register(
+                report_path,
+                engine_name=engine_name,
+                case_id=case_id,
+            )
+
+
+        return reports

@@ -1043,313 +1043,54 @@ class ReportsPage(InvestigationPage):
     # ========================================================
 
     def load_reports(self):
+        """Load ALL generated reports from the central report index —
+        chahe woh kahi bhi save hui ho (case folder, global reports
+        folder, ya koi bhi custom folder jo user ne choose kiya ho)."""
 
         self.report_list.clear()
 
-        # User reports folder - AppData me
-        USER_DATA_DIR = Path.home() / "AppData" / "Local" / "CyberTools Suite"
-        USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
-        self.reports_root = USER_DATA_DIR / "reports"
-        self.reports_root.mkdir(parents=True, exist_ok=True)
+        from ui.report_index import ReportIndex
+        entries = ReportIndex.get_all()
 
-        report_files = []
+        self.report_count.setText(f"{len(entries)} REPORTS")
 
-        # Case reports - AppData me
-        cases_dir = USER_DATA_DIR / "cases"
-        if cases_dir.exists():
-            for case_dir in cases_dir.iterdir():
-                if not case_dir.is_dir():
-                    continue
-                reports_dir = case_dir / "reports"
-                if reports_dir.exists():
-                    for file_path in reports_dir.rglob("*"):
-                        if not file_path.is_file():
-                            continue
-                        if file_path.suffix.lower() not in self.SUPPORTED_REPORTS:
-                            continue
-                        report_files.append(file_path)
-
-        # Global reports - AppData me
-        for file_path in self.reports_root.rglob("*"):
-
-            if not file_path.is_file():
-                continue
-
-            if file_path.suffix.lower() not in self.SUPPORTED_REPORTS:
-                continue
-
-            report_files.append(file_path)
-
-        report_files.sort(
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )
-
-        self.report_count.setText(
-            f"{len(report_files)} REPORTS"
-        )
-
-        # ----------------------------------------------------
-        # EMPTY STATE
-        # ----------------------------------------------------
-
-        if not report_files:
-
+        if not entries:
             empty_item = QListWidgetItem()
-
             empty_widget = QFrame()
-            empty_widget.setObjectName(
-                "emptyReport"
-            )
-
+            empty_widget.setObjectName("emptyReport")
             empty_widget.setMinimumHeight(120)
-
-            empty_layout = QVBoxLayout(
-                empty_widget
-            )
-
-            empty_layout.setContentsMargins(
-                30, 40, 30, 40
-            )
-
+            empty_layout = QVBoxLayout(empty_widget)
+            empty_layout.setContentsMargins(30, 40, 30, 40)
             empty_layout.setSpacing(12)
 
-            empty_title = QLabel(
-                "NO REPORTS AVAILABLE"
-            )
+            empty_title = QLabel("NO REPORTS AVAILABLE")
+            empty_title.setObjectName("emptyReportTitle")
+            empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-            empty_title.setObjectName(
-                "emptyReportTitle"
-            )
+            empty_text = QLabel("Generated investigation reports will appear here automatically.")
+            empty_text.setObjectName("emptyReportText")
+            empty_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty_text.setWordWrap(True)
 
-            empty_title.setAlignment(
-                Qt.AlignmentFlag.AlignCenter
-            )
-
-            empty_text = QLabel(
-                "Generated investigation reports "
-                "will appear here automatically."
-            )
-
-            empty_text.setObjectName(
-                "emptyReportText"
-            )
-
-            empty_text.setAlignment(
-                Qt.AlignmentFlag.AlignCenter
-            )
-
-            empty_text.setWordWrap(
-                True
-            )
-
-            empty_layout.addWidget(
-                empty_title,
-                alignment=Qt.AlignmentFlag.AlignCenter,
-            )
-
-            empty_layout.addWidget(
-                empty_text,
-                alignment=Qt.AlignmentFlag.AlignCenter,
-            )
+            empty_layout.addWidget(empty_title, alignment=Qt.AlignmentFlag.AlignCenter)
+            empty_layout.addWidget(empty_text, alignment=Qt.AlignmentFlag.AlignCenter)
 
             empty_widget.adjustSize()
-
-            empty_item.setSizeHint(
-                QSize(
-                    0,
-                    empty_widget.sizeHint().height()
-                )
-            )
-
-            self.report_list.addItem(
-                empty_item
-            )
-
-            self.report_list.setItemWidget(
-                empty_item,
-                empty_widget,
-            )
-
+            empty_item.setSizeHint(QSize(0, empty_widget.sizeHint().height()))
+            self.report_list.addItem(empty_item)
+            self.report_list.setItemWidget(empty_item, empty_widget)
             return
 
-        # ----------------------------------------------------
-        # REPORT ITEMS
-        # ----------------------------------------------------
-
-        for file_path in report_files:
-
-            # Use absolute path string for display - no relative_to() needed
-            relative_path = str(file_path)
-
+        for entry in entries:
+            file_path = Path(entry["path"])
+            if not file_path.exists():
+                continue
             item = QListWidgetItem()
-
-            report_widget = self.create_report_card(
-                file_path,
-                relative_path,
-            )
-
+            report_widget = self.create_report_card(file_path, str(file_path))
             report_widget.adjustSize()
-
-            item.setSizeHint(
-                QSize(0, 105)
-            )
-
-            self.report_list.addItem(
-                item
-            )
-
-            self.report_list.setItemWidget(
-                item,
-                report_widget,
-            )
-
-        # ----------------------------------------------------
-        # REPORT ITEMS
-        # ----------------------------------------------------
-
-        for file_path in report_files:
-
-            # Use absolute path string for display - no relative_to() needed
-            relative_path = str(file_path)
-
-            item = QListWidgetItem()
-
-            report_widget = self.create_report_card(
-                file_path,
-                relative_path,
-            )
-
-            report_widget.adjustSize()
-
-            item.setSizeHint(
-                QSize(0, 105)
-            )
-
-            self.report_list.addItem(
-                item
-            )
-
-            self.report_list.setItemWidget(
-                item,
-                report_widget,
-            )
-
-        # ----------------------------------------------------
-        # EMPTY STATE
-        # ----------------------------------------------------
-
-        if not report_files:
-
-            empty_item = QListWidgetItem()
-
-            empty_widget = QFrame()
-            empty_widget.setObjectName(
-                "emptyReport"
-            )
-
-            empty_widget.setMinimumHeight(120)
-
-            empty_layout = QVBoxLayout(
-                empty_widget
-            )
-
-            empty_layout.setContentsMargins(
-                30, 40, 30, 40
-            )
-
-            empty_layout.setSpacing(12)
-
-            empty_layout.setSpacing(8)
-
-            empty_title = QLabel(
-                "NO REPORTS AVAILABLE"
-            )
-
-            empty_title.setObjectName(
-                "emptyReportTitle"
-            )
-
-            empty_title.setAlignment(
-                Qt.AlignmentFlag.AlignCenter
-            )
-
-            empty_text = QLabel(
-                "Generated investigation reports "
-                "will appear here automatically."
-            )
-
-            empty_text.setObjectName(
-                "emptyReportText"
-            )
-
-            empty_text.setAlignment(
-                Qt.AlignmentFlag.AlignCenter
-            )
-
-            empty_text.setWordWrap(
-                True
-            )
-
-            empty_layout.addWidget(
-                empty_title,
-                alignment=Qt.AlignmentFlag.AlignCenter,
-            )
-
-            empty_layout.addWidget(
-                empty_text,
-                alignment=Qt.AlignmentFlag.AlignCenter,
-            )
-
-            empty_widget.adjustSize()
-
-            empty_item.setSizeHint(
-                QSize(
-                    0,
-                    empty_widget.sizeHint().height()
-                )
-            )
-
-            self.report_list.addItem(
-                empty_item
-            )
-
-            self.report_list.setItemWidget(
-                empty_item,
-                empty_widget,
-            )
-
-            return
-
-        # ----------------------------------------------------
-        # REPORT ITEMS
-        # ----------------------------------------------------
-
-        for file_path in report_files:
-
-            relative_path = str(file_path)
-
-            item = QListWidgetItem()
-
-            report_widget = self.create_report_card(
-                file_path,
-                relative_path,
-            )
-
-            report_widget.adjustSize()
-
-            item.setSizeHint(
-                QSize(0, 105)
-            )
-
-            self.report_list.addItem(
-                item
-            )
-
-            self.report_list.setItemWidget(
-                item,
-                report_widget,
-            )
+            item.setSizeHint(QSize(0, 105))
+            self.report_list.addItem(item)
+            self.report_list.setItemWidget(item, report_widget)
 
     # ========================================================
     # REPORT CARD
@@ -1601,7 +1342,9 @@ class CyberToolsWindow(QMainWindow):
 
             return
 
-        process = result
+        # 🔥 Ab result ek pura context dict hai (process bhi usi ke andar hai)
+        context = result
+        process = context["process"]
 
         workspace.set_status(
             "ANALYSIS RUNNING",
@@ -1627,6 +1370,7 @@ class CyberToolsWindow(QMainWindow):
                 workspace,
                 success,
                 message,
+                context,
             )
         )
 
@@ -1643,7 +1387,24 @@ class CyberToolsWindow(QMainWindow):
         workspace,
         success,
         message,
+        context=None,
     ):
+
+        # 🔥 Engine successfully complete hone par uske reports ko
+        # ReportIndex me register karo — chahe woh case folder me
+        # ho, global reports folder me ho, ya user ke chune hue
+        # kisi bhi custom folder me ho.
+        if success and context:
+
+            try:
+
+                EngineRunner.finalize_run(context)
+
+            except Exception as exc:
+
+                print(
+                    f"[Dashboard] Unable to finalize reports: {exc}"
+                )
 
         workspace.analysis_finished(
             success,
@@ -1839,7 +1600,6 @@ class CyberToolsWindow(QMainWindow):
             extensions=[
                 ".log",
                 ".txt",
-                ".csv",
             ],
         )
 

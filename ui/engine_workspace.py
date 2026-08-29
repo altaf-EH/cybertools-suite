@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import os
+
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -347,11 +349,8 @@ class EngineWorkspace(QWidget):
 
         if extensions:
 
-            filter_string = (
-                "Supported Files ("
-                + " ".join(extensions)
-                + ")"
-            )
+            # 🔥 SIRF SUPPORTED FORMATS DIKHENGE
+            filter_string = f"Supported Files ({' '.join(extensions)});;All Files (*)"
 
         else:
 
@@ -389,21 +388,23 @@ class EngineWorkspace(QWidget):
         self.output_input.setText(path)
 
     def request_run(self):
-
         case_id = self.case_input.text().strip()
         input_file = self.file_input.text().strip()
         output_dir = self.output_input.text().strip()
-
+    
+        # ------------------------------------------------------------
+        # VALIDATION
+        # ------------------------------------------------------------
         if not case_id:
             self.set_status("CASE ID REQUIRED", "error")
             self.case_input.setFocus()
             return
-
+    
         if not input_file:
             self.set_status("INPUT FILE REQUIRED", "error")
             return
-
-        # File extension check karo
+    
+        # File extension check
         file_ext = Path(input_file).suffix.lower()
         if self.supported_extensions and file_ext not in self.supported_extensions:
             self.set_status(f"UNSUPPORTED FORMAT: {file_ext}", "error")
@@ -414,11 +415,20 @@ class EngineWorkspace(QWidget):
                 f"Supported formats: {', '.join(self.supported_extensions)}",
             )
             return
-
+    
+        if output_dir:
+            # User ne custom folder choose kiya hai —
+            # usi folder ke andar case-wise subfolder banao (jaisa pehle tha)
+            output_path = os.path.join(output_dir, case_id)
+            os.makedirs(output_path, exist_ok=True)
+            output_dir = output_path
+        # ------------------------------------------------------------
+        # RUN
+        # ------------------------------------------------------------
         self.result_label.setText("Analysis process started...")
         self.set_status("ANALYSIS STARTING", "running")
         self.run_button.setEnabled(False)
-
+    
         self.run_requested.emit(case_id, input_file, output_dir)
 
 
@@ -447,44 +457,60 @@ class EngineWorkspace(QWidget):
             text
         )
 
-    def analysis_finished(
-        self,
-        success=True,
-        message=None,
-    ):
-
-        self.run_button.setEnabled(
-            True
-        )
-
+    def analysis_finished(self, success=True, message=None):
+        self.run_button.setEnabled(True)
+    
         if success:
-
-            self.set_status(
-                "ANALYSIS COMPLETE",
-                "success",
-            )
-
-            self.result_label.setText(
-                message
-                or
-                "Analysis completed successfully."
-            )
-
+            self.set_status("ANALYSIS COMPLETE", "success")
+            self.result_label.setText(message or "Analysis completed successfully.")
             self.ai_button.setEnabled(True)
-
         else:
-
-            self.set_status(
-                "ANALYSIS FAILED",
-                "error",
-            )
-
-            self.result_label.setText(
-                message
-                or
-                "Analysis failed. Check the terminal output."
-            )
-
+            self.set_status("ANALYSIS FAILED", "error")
+        
+            # 🔥 USER-FRIENDLY ERROR MESSAGE
+            error_msg = message or "Analysis failed."
+        
+            # Check for common errors
+            if "Worksheet index 0 is invalid" in error_msg or "0 worksheets found" in error_msg:
+                friendly_msg = (
+                    "⚠️ The Excel file appears to be corrupted or empty.\n\n"
+                    "📌 Please try:\n"
+                    "• Open the file in Excel and 'Save As' as .xlsx\n"
+                    "• Make sure the file has at least one sheet with data\n"
+                    "• Try converting your CSV to Excel properly"
+                )
+            elif "Missing required column" in error_msg or "KeyError" in error_msg:
+                friendly_msg = (
+                    "⚠️ Required columns not found in the file.\n\n"
+                    "📌 For CDR: 'calling_number', 'called_number', 'duration'\n"
+                    "📌 For FinTrack: 'sender_account', 'receiver_account', 'amount'\n"
+                    "📌 For Logs: IP addresses and timestamps\n\n"
+                    "💡 Check the file header (first row) for correct column names."
+                )
+            elif "UnicodeDecodeError" in error_msg or "encoding" in error_msg.lower():
+                friendly_msg = (
+                    "⚠️ File encoding issue.\n\n"
+                    "📌 Please ensure the file is saved in UTF-8 format.\n"
+                    "📌 Try saving as CSV or Excel using standard encoding."
+                )
+            elif "No authentication failure records found" in error_msg:
+                friendly_msg = (
+                    "✅ No suspicious activity detected in this log file.\n\n"
+                    "📌 The file was scanned and no authentication failures were found.\n"
+                    "📌 This is a clean report — no action needed."
+                )
+            else:
+                friendly_msg = (
+                    f"⚠️ Analysis failed.\n\n"
+                    f"Error: {error_msg[:200]}\n\n"
+                    f"📌 Common reasons:\n"
+                    f"• Unsupported file format (use .csv, .xlsx, .log, .txt)\n"
+                    f"• File is corrupted or empty\n"
+                    f"• Missing required columns\n\n"
+                    f"💡 Check the terminal for detailed logs."
+                )
+        
+            self.result_label.setText(friendly_msg)
             self.ai_button.setEnabled(False)
 
     def request_ai_insight(self):
@@ -513,9 +539,14 @@ class EngineWorkspace(QWidget):
             "GET AI INSIGHTS (LOCAL, FREE)"
         )
 
-        self.ai_result_label.setText(
-            text if success else f"AI Insights unavailable: {text}"
-        )
+        if success:
+            self.ai_result_label.setText(text)
+        else:
+            self.ai_result_label.setText(
+               f"⚠️ AI Insights unavailable:\n{text}\n\n"
+               f"Tip: Make sure Ollama is installed and running.\n"
+               f"Download from: https://ollama.com"
+            )
         self.ai_result_label.show()
 
     def clear_form(self):
