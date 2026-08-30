@@ -9,9 +9,9 @@ REM ============================================================
 cd /d "%~dp0\.."
 
 REM Set Python path - apne venv ke hisaab se adjust karo
-set PYTHON="C:\Users\altaf\OneDrive\Desktop\CyberToolsSuite\CyberToolsSuite\venv\Scripts\python.exe"
-set PIP="C:\Users\altaf\OneDrive\Desktop\CyberToolsSuite\CyberToolsSuite\venv\Scripts\pip.exe"
-set PYINSTALLER="C:\Users\altaf\OneDrive\Desktop\CyberToolsSuite\CyberToolsSuite\venv\Scripts\pyinstaller.exe"
+set PYTHON="C:\Users\altaf\OneDrive\Desktop\CyberToolsSuite\venv\Scripts\python.exe"
+set PIP="C:\Users\altaf\OneDrive\Desktop\CyberToolsSuite\venv\Scripts\pip.exe"
+set PYINSTALLER="C:\Users\altaf\OneDrive\Desktop\CyberToolsSuite\venv\Scripts\pyinstaller.exe"
 
 echo.
 echo ============================================================

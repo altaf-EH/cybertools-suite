@@ -8,7 +8,7 @@
 ; ============================================================
 
 #define MyAppName "CyberTools Suite"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "CyberTools"
 #define MyAppExeName "CyberToolsSuite.exe"
 #define MyAppCopyright "Copyright © 2026 CyberTools. All Rights Reserved."
@@ -31,7 +31,7 @@ SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesInstallIn64BitMode=x64
 LicenseFile=..\LICENSE.txt
-InfoBeforeFile=..\README.txt
+; InfoBeforeFile=..\README.txt
 PrivilegesRequired=lowest
 
 [Languages]
