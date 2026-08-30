@@ -145,7 +145,7 @@ See `LICENSE.txt` for full details.
 
 ## 👨‍💻 Developer
 
-**CyberTools Team (c) 2026**
+**Altaf (c) 2026**
 
 ---
 
