@@ -152,8 +152,8 @@ See `LICENSE.txt` for full details.
 ## 📞 Contact
 
 For queries, feedback, or commercial licensing:
-- Email: `[your-email]`
-- GitHub Issues: `[your-repo-url]`
+- Email: altafreza90000@gmail.com
+- GitHub Issues: https://github.com/altaf-EH
 
 ---
 
