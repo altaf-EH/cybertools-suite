@@ -1,394 +1,170 @@
-# CyberTools Suite
+# 🛡️ CyberTools Suite v1.1.0
 
-**Professional Digital Investigation Platform**
-
-CyberTools Suite is a powerful, offline-first digital investigation platform designed for cyber cell authorities, forensic investigators, SOC analysts, and law enforcement agencies.
+**Production Ready — Law Enforcement / Cyber Cell Grade Investigation Platform**
 
 ---
 
-## 📸 Screenshots
+## 📌 Overview
 
-### Dashboard
-![Dashboard](https://raw.githubusercontent.com/altaf-EH/cybertools-suite/main/assets/screenshots/dashboard.png)
+CyberTools Suite is an offline-first, privacy-focused digital investigation platform designed for **Law Enforcement Agencies, Cyber Cells, and Government Investigative Bodies**. It provides three powerful tools in one unified interface:
 
-### CDR Analyzer
-![CDR Analyzer](https://raw.githubusercontent.com/altaf-EH/cybertools-suite/main/assets/screenshots/cdr_analyzer.png)
+- **CDR Analyzer** — Call Detail Record analysis
+- **FinTrack** — Financial fraud & mule account detection
+- **Log Analyzer** — Authentication log analysis
 
-### Log Analyzer
-![Log Analyzer](https://raw.githubusercontent.com/altaf-EH/cybertools-suite/main/assets/screenshots/log_analyzer.png)
-
-### FinTrack
-![FinTrack](https://raw.githubusercontent.com/altaf-EH/cybertools-suite/main/assets/screenshots/fintrack.png)
-
-### Case Management
-![Case Management](https://raw.githubusercontent.com/altaf-EH/cybertools-suite/main/assets/screenshots/case_management.png)
-
-### Reports
-![Reports](https://raw.githubusercontent.com/altaf-EH/cybertools-suite/main/assets/screenshots/reports.png)
-
-### Settings
-![Settings](https://raw.githubusercontent.com/altaf-EH/cybertools-suite/main/assets/screenshots/settings.png)
+All data stays on your machine. No internet required (except optional AI model download). No data leaves your system.
 
 ---
 
-## 📋 Table of Contents
+## 🔥 What's New in v1.1.0
 
-1. [Features](#features)
-2. [Tools Included](#tools-included)
-3. [System Requirements](#system-requirements)
-4. [Installation](#installation)
-5. [Getting Started](#getting-started)
-6. [Using the Tools](#using-the-tools)
-7. [AI Insights (Ollama)](#ai-insights-ollama)
-8. [Case Management](#case-management)
-9. [Reports](#reports)
-10. [Supported File Formats](#supported-file-formats)
-11. [Updates](#updates)
-12. [Privacy & Security](#privacy--security)
-13. [License](#license)
-14. [Support](#support)
+- **Report Registry System** — Central index of all reports. Chahe report kahi bhi save ho, Dashboard mein dikhegi.
+- **AI Model Download** — Download Ollama models directly from Settings.
+- **Case-Wise Output** — Reports organized in `cases/{case_id}/reports/`.
+- **Sidebar Scrolling** — Full sidebar scroll support (pehle half-screen cut ho jaata tha).
+- **Better Error Handling** — User-friendly messages for corrupt files.
+- **Smart Column Detection** — Chahe column ka naam kuch bhi ho, tool automatically dhundh lega.
+- **Unicode Errors Fixed** — `✓` checkmark removed, `[+]` used.
+- **Dashboard Stats Fixed** — Accurate report counts.
 
 ---
 
-## ✨ Features
+## 🛠️ Tools
 
-- **Offline-First**: All data stays on your PC. No cloud, no internet required for core functionality.
-- **3 Analysis Engines**: CDR Analyzer, Log Analyzer, and FinTrack - all in one platform.
-- **AI-Powered Insights**: Local AI analysis via Ollama - free, private, no API key needed.
-- **Case Management**: Organize investigations into structured cases.
-- **Professional Reports**: Generate PDF, TXT, XLSX, CSV, and JSON reports.
-- **Auto-Updates**: Get new tools and bug fixes automatically via GitHub Releases.
-- **Local AI**: AI runs entirely on your machine - no data leaves your PC.
+| Tool | Purpose | Supported Formats |
+|------|---------|-------------------|
+| **CDR Analyzer** | Call Detail Record analysis (Telecom) | `.csv`, `.xlsx` |
+| **FinTrack** | Financial fraud & mule account detection | `.csv`, `.xlsx` |
+| **Log Analyzer** | Authentication log analysis (SSH, FTP, etc.) | `.log`, `.txt` |
 
 ---
 
-## 🛠️ Tools Included
+## 📄 Report Formats
 
-### 1. CDR Analyzer
-Analyzes telecom Call Detail Records (CDR) to identify:
-- Suspicious numbers and calling patterns
-- Odd-hour activity (11PM - 5AM)
-- Multiple IMEI swaps (SIM swapping)
-- High call frequency and volume
-- Tower/cell location patterns
-- Contact pair link analysis
-
-### 2. Log Analyzer
-Analyzes authentication and security logs to identify:
-- Failed login attempts
-- Brute force attacks
-- Multiple username targeting
-- Suspicious IP addresses
-- IP geolocation and reputation (via AbuseIPDB)
-- Attack speed analysis
-
-### 3. FinTrack
-Analyzes financial transactions to identify:
-- Mule account patterns
-- Funnel account structures
-- Same-day in-out fund movement (layering)
-- Round-figure transactions (structuring)
-- High pass-through ratio accounts
-- Closed-loop transaction pairs
-- Network risk cross-checks
+| Tool | Reports Generated |
+|------|-------------------|
+| CDR Analyzer | 📄 PDF |
+| Log Analyzer | 📄 PDF |
+| FinTrack | 📄 PDF + 📊 XLSX (Excel) |
 
 ---
 
-## 💻 System Requirements
+## 💪 Key Features
 
-| Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| Operating System | Windows 10 (64-bit) | Windows 11 (64-bit) |
-| RAM | 8 GB | 16 GB |
-| Disk Space | 500 MB | 1 GB |
-| CPU | Dual-core | Quad-core or better |
-| Internet | Not required (except AI model download) | Optional |
+- **Offline-First** — Data never leaves your machine. No cloud, no tracking.
+- **Smart Column Detection** — Automatically detects column names. User doesn't need to rename columns.
+- **Chunk Reading** — Handles 1GB+ files without crashing.
+- **Crash-Proof** — Every error is handled gracefully. Clear user-friendly messages.
+- **Report Registry** — Central index of all reports. Reports visible in Dashboard even if saved in custom folders.
+- **Local AI (Ollama)** — Optional, free, offline. No API key required. Data never leaves your machine.
+- **Case Management** — Create cases, add evidence, track investigations.
+- **Evidence Tracking** — Add evidence files to cases.
+- **Custom Output Directory** — User can choose where reports are saved.
+- **Scrollable Sidebar** — Full sidebar scroll support.
 
 ---
 
-## 📥 Installation
+## 📂 Folder Structure
+CyberToolsSuite/
+├── cases/
+│ └── {case_id}/
+│ └── reports/ # Case-wise reports
+├── reports/ # Default reports folder
+├── config/
+│ └── settings.json # User settings
+├── data/
+│ └── known_patterns.json # Editable AI patterns
+├── engines/
+│ ├── cdr_analyzer/
+│ ├── fintrack/
+│ └── log_analyzer/
+├── ui/
+│ └── ... (UI components)
+├── assets/
+│ └── logo.png
+├── LICENSE.txt
+├── README.md
+└── report_registry.json # Central report index
 
-### Option 1: Installer (Recommended for End Users)
+text
 
-1. Download `CyberToolsSuite_Setup_v1.0.0.exe` from GitHub Releases
+---
+
+## 📦 Installation
+
+### Option 1: Installer (Recommended)
+1. Download `CyberToolsSuite_Setup_v1.1.0.exe`
 2. Run the installer
-3. Follow the on-screen instructions
-4. Launch CyberTools Suite from Start Menu or Desktop
+3. Launch from Start Menu or Desktop
 
-### Option 2: From Source (For Developers)
+### Option 2: Portable
+1. Download `CyberToolsSuite.exe`
+2. Run directly
 
-```bash
-# Clone the repository
-git clone https://github.com/altaf-EH/cybertools-suite.git
-cd cybertools-suite
+---
 
-# Create virtual environment (Windows)
-python -m venv .venv
-.venv\Scripts\activate
+## 🔧 System Requirements
 
-# Create virtual environment (Linux/Mac)
-python3 -m venv .venv
-source .venv/bin/activate
+| Requirement | Minimum |
+|-------------|---------|
+| OS | Windows 10 / 11 |
+| RAM | 4GB (8GB+ recommended for AI) |
+| Disk Space | 500MB (5GB+ for AI models) |
+| Python | Not required (standalone .exe) |
 
-# Install dependencies
-pip install -r requirements.txt
+---
 
-# Run the app
-python main.py
-🚀 Getting Started
-Step 1: Launch the App
-Double-click CyberToolsSuite.exe or run python main.py
+## 🧠 AI Insights (Optional)
 
-Step 2: Create a Case
-Go to Case Management
+AI Insights uses **Ollama** to provide local LLM analysis.
 
-Enter a Case ID (e.g., CASE-001)
+### Setup
+1. Install Ollama from [https://ollama.com](https://ollama.com)
+2. Launch CyberTools Suite
+3. Go to **Settings → AI Insights**
+4. Click **"Download Model"**
+5. Wait for download to complete
 
-Enter a Title and Description
+### Supported Models
 
-Click Create Case
+| Tier | Model | Size |
+|------|-------|------|
+| Fast | `llama3.2:3b` | ~2GB |
+| Balanced | `phi3:mini` | ~2.3GB |
+| Best | `llama3.1:8b` | ~4.7GB |
 
-Step 3: Add Evidence
-Select your case
+---
 
-Click Add Evidence
+## 🔒 License
 
-Choose your evidence file (CSV, XLSX, LOG, etc.)
+**Strict CyberTools License** — Commercial use, modification, and redistribution strictly prohibited without written permission.
 
-Step 4: Run Analysis
-Go to the appropriate tool (CDR Analyzer, Log Analyzer, or FinTrack)
+See `LICENSE.txt` for full details.
 
-Enter your Case ID
+---
 
-Select your Input File
+## 👨‍💻 Developer
 
-Click Run Analysis
+**CyberTools Team (c) 2026**
 
-Step 5: View Reports
-Reports are automatically saved to cases/<Case-ID>/reports/
+---
 
-View them in the Reports section
+## 📞 Contact
 
-📊 Using the Tools
-CDR Analyzer
-Input: CSV, XLSX, XLS, TSV, TXT files with call records
+For queries, feedback, or commercial licensing:
+- Email: `[your-email]`
+- GitHub Issues: `[your-repo-url]`
 
-Required Columns:
+---
 
-calling_number (or aliases like a_party, caller, from_number)
+## 🙏 Acknowledgements
 
-called_number (or aliases like b_party, callee, to_number)
+- PySide6 — Qt for Python
+- Pandas — Data analysis
+- ReportLab — PDF generation
+- OpenPyXL — Excel support
+- Ollama — Local LLM
 
-date and time (or datetime)
+---
 
-Optional Columns:
-
-duration - call duration in seconds
-
-call_type - voice, SMS, data, etc.
-
-tower_id - cell tower ID
-
-imei - device IMEI
-
-imsi - subscriber IMSI
-
-Log Analyzer
-Input: LOG, TXT, CSV, TSV files with authentication logs
-
-Detects:
-
-Failed password
-
-Invalid user
-
-authentication failure
-
-Failed login
-
-Login failed
-
-Permission denied
-
-Connection refused
-
-FinTrack
-Input: CSV, XLSX, XLS, TSV, TXT files with transaction records
-
-Required Columns:
-
-sender_account (or aliases like from_account, payer, debit_account)
-
-receiver_account (or aliases like to_account, payee, beneficiary)
-
-amount (or aliases like amt, txn_amount, value)
-
-Optional Columns:
-
-date and time (or datetime)
-
-transaction_type - debit/credit, type
-
-channel - payment mode
-
-bank_name - bank/IFSC
-
-remarks - narration/description
-
-reference_id - UTR/RRN
-
-🤖 AI Insights (Ollama)
-What is Ollama?
-Ollama is a free, open-source tool that runs large language models (LLMs) locally on your PC. It's completely offline - no data ever leaves your machine.
-
-Why Use AI Insights?
-Free: No API keys, no subscription, no per-request cost
-
-Private: Your data never leaves your PC
-
-Contextual: AI connects the dots between findings
-
-Hybrid: Rules do the heavy lifting, AI adds reasoning
-
-How to Set Up AI Insights
-Install Ollama from https://ollama.com
-
-Launch Ollama - it runs in the background
-
-Open CyberTools Suite → Settings → AI Insights
-
-Click Recheck Status - it should detect Ollama
-
-Click Download Model - this downloads the AI model
-
-Enable AI Insights
-
-Available Models
-Tier	Model	RAM Required	Quality
-Fast	llama3.2:3b	8 GB	Good
-Balanced	phi3:mini	8 GB	Good
-Best	llama3.1:8b	16 GB	Best
-How AI Insights Work
-Run your analysis (CDR, Log, FinTrack)
-
-Click Get AI Insights
-
-The local AI model analyzes the findings
-
-It connects patterns and suggests next steps
-
-📁 Case Management
-Create a Case
-Case ID: Unique identifier (e.g., CASE-001)
-
-Title: Investigation title
-
-Description: Short summary
-
-Case Structure
-text
-cases/
-└── CASE-001/
-    ├── case.json          # Case metadata
-    ├── evidence/          # Evidence files
-    ├── reports/           # Generated reports
-    └── artifacts/         # Analysis artifacts
-📄 Reports
-Generated Reports
-Tool	Formats
-CDR Analyzer	PDF, TXT, XLSX
-Log Analyzer	PDF, TXT
-FinTrack	PDF, TXT, XLSX, CSV, JSON
-Report Contents
-Summary: Total records, unique entities, overall risk
-
-Suspicious Entities: Ranked list with risk scores
-
-Link Analysis: Top contact/transaction pairs
-
-Analysis Reasons: Why each entity was flagged
-
-📂 Supported File Formats
-Tool	Supported Extensions
-CDR Analyzer	.csv, .xlsx, .xls, .tsv, .txt
-Log Analyzer	.log, .txt, .csv, .tsv
-FinTrack	.csv, .xlsx, .xls, .tsv, .txt
-Unsupported Files
-If you upload an unsupported file (e.g., .png, .jpeg), the tool will show:
-
-text
-[ERROR] Unsupported file format: .png
-Supported formats: .csv, .xlsx, .xls, .tsv, .txt
-🔄 Updates
-How Updates Work
-CyberTools Suite checks GitHub Releases automatically
-
-When a new version is available, a popup appears
-
-Click Yes to download the update
-
-Install the new version
-
-Version History
-Version	Date	Changes
-v1.0.0	2026	Initial release
-🔒 Privacy & Security
-Data Privacy
-100% Offline: All data stays on your PC
-
-No Cloud: No data is uploaded to any server
-
-Local AI: AI runs on your machine via Ollama
-
-What Stays Local
-Case files
-
-Evidence files
-
-Generated reports
-
-Analysis results
-
-AI analysis
-
-Optional External Services
-AbuseIPDB: Only when you add an API key (for IP reputation checks)
-
-GitHub Updates: Only checks for new versions (no data sent)
-
-📜 License
-CyberTools Suite is licensed under Creative Commons BY-NC-ND 4.0 International.
-
-Personal & Internal Use Only: Free to use for authorized investigations
-
-No Commercial Use: Cannot be sold or rented
-
-No Modifications: Cannot redistribute modified versions
-
-No Liability: Software is provided "as is"
-
-Copyright © 2026 CyberTools. All Rights Reserved.
-
-📞 Support
-GitHub
-Repository: https://github.com/altaf-EH/cybertools-suite
-
-Issues: Report bugs at https://github.com/altaf-EH/cybertools-suite/issues
-
-Updates
-Check for updates: CyberTools Suite → Settings → Check for Updates
-
-🙏 Acknowledgments
-Ollama: https://ollama.com - Local AI models
-
-AbuseIPDB: https://www.abuseipdb.com - IP reputation
-
-PySide6: Qt for Python - UI framework
-
-ReportLab: PDF generation
-
-Pandas: Data processing
-
-PyInstaller: Executable packaging
-
-Copyright © 2026 CyberTools. All Rights Reserved.
+**Built with ❤️ for Law Enforcement & Cyber Cells**

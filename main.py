@@ -53,7 +53,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("CyberTools Suite")
     app.setOrganizationName("CyberTools")
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("1.1.0")
     
     # Create main window
     window = CyberToolsWindow()

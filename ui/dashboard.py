@@ -963,6 +963,13 @@ class ReportsPage(InvestigationPage):
             parent,
         )
 
+        # Sirf Reports page ke liye: body ko poori bachi hui height
+        # le lene do, taaki report list genuine overflow hone tak
+        # kabhi scroll na dikhaye. Ye sirf is page ko affect karta hai,
+        # baaki pages (Dashboard, Settings, etc.) waise hi rahenge.
+        self.page_layout.setStretch(3, 1)
+        self.page_layout.setStretch(4, 0)
+
         # User reports folder - AppData me
         USER_DATA_DIR = Path.home() / "AppData" / "Local" / "CyberTools Suite"
         USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -1487,8 +1494,10 @@ class CyberToolsWindow(QMainWindow):
             self.change_page
         )
 
-        sidebar_layout.addWidget(self.navigation)
-        sidebar_layout.addStretch()
+        self.navigation.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.navigation.setFrameShape(QFrame.Shape.NoFrame)
+
+        sidebar_layout.addWidget(self.navigation, 1)
 
         status_frame = QFrame()
         status_frame.setObjectName("systemStatus")

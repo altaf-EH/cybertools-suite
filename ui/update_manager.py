@@ -20,7 +20,7 @@ from datetime import datetime
 GITHUB_REPO = "altaf-EH/cybertools-suite"
 GITHUB_API = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 
-CURRENT_VERSION = "1.0.0"
+CURRENT_VERSION = "1.1.0"
 UPDATE_CHECK_INTERVAL = 24 * 60 * 60  # 24 hours
 
 

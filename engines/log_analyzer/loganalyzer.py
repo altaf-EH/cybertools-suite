@@ -1927,7 +1927,7 @@ def main():
         report_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
         report_file_time = current_time.strftime("%Y%m%d_%H%M%S")
         
-        pdf_path = os.path.join(output_dir, f"report_{report_file_time}.pdf")
+        pdf_path = os.path.join(output_dir, f"log_report_{report_file_time}.pdf")
         
         # Clean report generate karo (no suspicious activity)
         generate_clean_pdf_report(pdf_path, report_time, result['total_events'])
@@ -1964,7 +1964,7 @@ def main():
     report_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
     report_file_time = current_time.strftime("%Y%m%d_%H%M%S")
 
-    pdf_path = os.path.join(output_dir, f"report_{report_file_time}.pdf")
+    pdf_path = os.path.join(output_dir, f"log_report_{report_file_time}.pdf")
 
     # Terminal report
     print_terminal_report(report_time, total_attempts, total_unique_ips, overall_risk, overall_reasons, ip_results)

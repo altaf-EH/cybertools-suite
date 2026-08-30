@@ -23,7 +23,7 @@ from reportlab.lib.utils import ImageReader
 # ============================================================
 
 REPORT_DIR = "reports"
-SUPPORTED_EXTENSIONS = {".csv", ".xlsx", ".xls", ".tsv", ".txt"}
+SUPPORTED_EXTENSIONS = {".csv", ".xlsx"}
 
 ODD_HOUR_START_MIN = 23 * 60        # 23:00
 ODD_HOUR_END_MIN = 5 * 60           # 05:00
@@ -342,149 +342,265 @@ def normalize_header(value):
         text = text.replace("__", "_")
     return text.strip("_")
 
+def find_column(df, possible_names):
+    """Column dhundho chahe uska naam kuch bhi ho."""
+    for col in df.columns:
+        col_clean = str(col).strip().lower().replace(" ", "_").replace("-", "_")
+        for name in possible_names:
+            if name in col_clean:
+                return col
+    return None
 
 def normalize_columns(df):
+    """Normalize transaction columns - SMART + FAILPROOF version."""
+    
+    # 🔥 PEHLE: Smart column detection karo (case insensitive, partial match)
+    sender_col = find_column(df, ['sender', 'from', 'payer', 'remitter', 'debit', 'originating', 'source', 'account_debited'])
+    receiver_col = find_column(df, ['receiver', 'to', 'payee', 'beneficiary', 'credit', 'destination', 'account_credited'])
+    amount_col = find_column(df, ['amount', 'amt', 'value', 'transaction_amount', 'txn_amount', 'inr'])
+    date_col = find_column(df, ['date', 'txn_date', 'transaction_date', 'value_date', 'posting_date'])
+    time_col = find_column(df, ['time', 'txn_time', 'transaction_time'])
+    datetime_col = find_column(df, ['datetime', 'timestamp', 'txn_datetime', 'transaction_datetime'])
+    type_col = find_column(df, ['type', 'txn_type', 'transaction_type', 'dr_cr', 'debit_credit'])
+    channel_col = find_column(df, ['channel', 'mode', 'payment_mode', 'instrument', 'product_type'])
+    bank_col = find_column(df, ['bank', 'bank_name', 'ifsc', 'branch'])
+    remarks_col = find_column(df, ['remarks', 'narration', 'description', 'particulars', 'note', 'purpose'])
+    ref_col = find_column(df, ['reference', 'ref', 'utr', 'rrn', 'txn_id', 'transaction_id'])
+    
+    # 🔥 RENAME MAP BANAYO
     rename_map = {}
-    assigned_standards = set()
-    assigned_originals = set()
-
-    normalized_columns = {}
-    for column in df.columns:
-        norm = normalize_header(column)
-        if norm not in normalized_columns:
-            normalized_columns[norm] = column
-
-    # Pass 1: exact alias match
-    for standard_name, aliases in COLUMN_ALIASES.items():
-        normalized_aliases = {normalize_header(alias) for alias in aliases}
-
-        for alias in normalized_aliases:
-            if alias in normalized_columns:
-                original_column = normalized_columns[alias]
-                if original_column in assigned_originals:
-                    continue
-                rename_map[original_column] = standard_name
-                assigned_standards.add(standard_name)
-                assigned_originals.add(original_column)
-                break
-
-    # Pass 2: keyword fallback
-    for standard_name, keywords in FALLBACK_KEYWORDS.items():
-        if standard_name in assigned_standards:
-            continue
-        for column in df.columns:
-            if column in assigned_originals:
-                continue
-            norm = normalize_header(column)
-            if any(keyword in norm for keyword in keywords):
-                rename_map[column] = standard_name
-                assigned_standards.add(standard_name)
-                assigned_originals.add(column)
-                break
-
+    
+    if sender_col:
+        rename_map[sender_col] = "sender_account"
+    if receiver_col:
+        rename_map[receiver_col] = "receiver_account"
+    if amount_col:
+        rename_map[amount_col] = "amount"
+    if date_col:
+        rename_map[date_col] = "date"
+    if time_col:
+        rename_map[time_col] = "time"
+    if datetime_col:
+        rename_map[datetime_col] = "datetime"
+    if type_col:
+        rename_map[type_col] = "transaction_type"
+    if channel_col:
+        rename_map[channel_col] = "channel"
+    if bank_col:
+        rename_map[bank_col] = "bank_name"
+    if remarks_col:
+        rename_map[remarks_col] = "remarks"
+    if ref_col:
+        rename_map[ref_col] = "reference_id"
+    
+    # 🔥 FALLBACK: Agar kuch column nahi mila toh purane COLUMN_ALIASES ka use karo
+    if not rename_map or "sender_account" not in rename_map or "receiver_account" not in rename_map:
+        print("[!] Smart detection incomplete, falling back to alias mapping...")
+        # Existing COLUMN_ALIASES logic yahan aayega
+        for standard_name, aliases in COLUMN_ALIASES.items():
+            for alias in aliases:
+                alias_clean = alias.lower().replace(" ", "_").replace("-", "_")
+                for col in df.columns:
+                    col_clean = str(col).strip().lower().replace(" ", "_").replace("-", "_")
+                    if alias_clean == col_clean or alias_clean in col_clean:
+                        if standard_name not in rename_map.values():
+                            rename_map[col] = standard_name
+                            break
+    
+    # 🔥 FINAL FALLBACK: Agar sender/receiver nahi mile toh first 2 columns assume karo
+    if "sender_account" not in rename_map.values() and len(df.columns) >= 2:
+        print("[!] Sender column not found, assuming first column is sender...")
+        rename_map[df.columns[0]] = "sender_account"
+    
+    if "receiver_account" not in rename_map.values() and len(df.columns) >= 2:
+        print("[!] Receiver column not found, assuming second column is receiver...")
+        rename_map[df.columns[1]] = "receiver_account"
+    
+    if "amount" not in rename_map.values() and len(df.columns) >= 3:
+        # Try to find a numeric column
+        for col in df.columns:
+            if col not in rename_map:
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    rename_map[col] = "amount"
+                    print(f"[!] Assuming numeric column '{col}' is amount...")
+                    break
+    
     return df.rename(columns=rename_map)
 
 
 def build_datetime_column(df):
-    if "datetime" in df.columns:
-        df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce", dayfirst=True)
-    elif "date" in df.columns and "time" in df.columns:
-        combined = df["date"].astype(str).str.strip() + " " + df["time"].astype(str).str.strip()
-        df["datetime"] = pd.to_datetime(combined, errors="coerce", dayfirst=True)
-    elif "date" in df.columns:
-        df["datetime"] = pd.to_datetime(df["date"], errors="coerce", dayfirst=True)
+    """Build datetime column - FULLY FAILPROOF."""
+    
+    # 🔥 Try multiple datetime formats
+    date_cols = ['datetime', 'date', 'txn_date', 'transaction_date', 'value_date', 'posting_date']
+    time_cols = ['time', 'txn_time', 'transaction_time']
+    
+    # Find datetime column
+    datetime_col = None
+    for col in date_cols:
+        if col in df.columns:
+            datetime_col = col
+            break
+    
+    if datetime_col:
+        # Try multiple formats
+        formats = ['%d-%m-%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S', '%d-%m-%Y %H:%M', 
+                   '%Y-%m-%d', '%d-%m-%Y', '%m/%d/%Y', '%d/%m/%Y']
+        for fmt in formats:
+            try:
+                df["datetime"] = pd.to_datetime(df[datetime_col], format=fmt, errors='coerce')
+                if df["datetime"].notna().sum() > 0:
+                    print(f"[+] Date format detected: {fmt}")
+                    break
+            except:
+                continue
+        else:
+            # Fallback: auto-detect
+            df["datetime"] = pd.to_datetime(df[datetime_col], errors='coerce', dayfirst=True)
+            print("[+] Date format: auto-detected")
     else:
-        print("[ERROR] Could not find date/time columns in the transaction file.")
-        print("Expected either a 'datetime' column, a 'date' column, or both 'date' and 'time'.")
-        sys.exit(1)
-
+        print("[ERROR] Could not find date/time columns.")
+        print(f"Available columns: {df.columns.tolist()}")
+        # 🔥 FALLBACK: Use current time
+        from datetime import datetime
+        df["datetime"] = datetime.now()
+    
     before = len(df)
     df = df.dropna(subset=["datetime"])
     dropped = before - len(df)
     if dropped:
         print(f"[!] Warning: dropped {dropped} row(s) with unreadable date/time.")
-
+    
     return df
 
 
 def _read_any_table(path):
-    """Best-effort loader: tries Excel and CSV/TSV with several encodings."""
+    """Read any table - with CSV fallback for corrupt Excel files."""
     ext = os.path.splitext(path)[1].lower()
-    attempts = []
-
-    def try_excel():
-        return pd.read_excel(path)
-
-    def try_csv(encoding):
-        return pd.read_csv(path, sep=None, engine="python", encoding=encoding)
-
+    
+    # 🔥 EXCEL FILES
     if ext in (".xlsx", ".xls", ".xlsm"):
-        order = ["excel", "csv"]
-    else:
-        order = ["csv", "excel"]
-
-    for kind in order:
-        if kind == "excel":
+        print("[*] Reading Excel file...")
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(path, data_only=True)
+            sheet_names = wb.sheetnames
+            
+            if not sheet_names:
+                print("[!] No worksheets found. Trying CSV...")
+                df = pd.read_csv(path, encoding='utf-8-sig')
+                print("[+] Read as CSV")
+                return df
+            
+            print(f"[+] Found sheet: {sheet_names[0]}")
+            df = pd.read_excel(path, engine='openpyxl', sheet_name=sheet_names[0])
+            df = df.dropna(how='all')
+            df = df.dropna(axis=1, how='all')
+            print(f"[+] Excel loaded: {len(df)} rows")
+            return df
+            
+        except Exception as e:
+            print(f"[!] Excel error: {e}, trying CSV...")
             try:
-                return try_excel()
-            except Exception as error:
-                attempts.append(f"excel: {error}")
-        else:
-            for encoding in ("utf-8-sig", "utf-8", "latin1", "cp1252"):
-                try:
-                    return try_csv(encoding)
-                except Exception as error:
-                    attempts.append(f"csv({encoding}): {error}")
-
-    print("[ERROR] Unable to read the file with any known method.")
-    for attempt in attempts:
-        print(f"    - {attempt}")
-    sys.exit(1)
+                df = pd.read_csv(path, encoding='utf-8-sig')
+                print("[+] CSV loaded (fallback)")
+                return df
+            except:
+                print("[ERROR] Cannot read file.")
+                sys.exit(1)
+    
+    # 🔥 CSV FILES
+    else:
+        print("[*] Reading CSV file...")
+        try:
+            df = pd.read_csv(path, encoding='utf-8-sig')
+            df = df.dropna(how='all')
+            df = df.dropna(axis=1, how='all')
+            print(f"[+] CSV loaded: {len(df)} rows")
+            return df
+        except Exception as e:
+            print(f"[ERROR] Cannot read CSV: {e}")
+            sys.exit(1)
 
 
 def parse_transactions(path):
-    """Load and normalize a financial transaction statement (CSV/XLSX/TSV, any bank/PSP export)."""
+    """Load and normalize transactions - FULLY FAILPROOF."""
+    
+    import warnings
+    warnings.filterwarnings("ignore")
+    
+    # 🔥 STEP 1: Read file
     df = _read_any_table(path)
-
+    
     if df is None or df.empty:
-        print("[ERROR] File contains no readable rows.")
+        print("[ERROR] No data found.")
         sys.exit(1)
-
+    
+    print(f"[+] Raw data: {len(df)} rows, {len(df.columns)} columns")
+    print(f"[+] Columns: {df.columns.tolist()}")
+    
+    # 🔥 STEP 2: Normalize columns
     df = normalize_columns(df)
-
+    print(f"[+] After normalize: {df.columns.tolist()}")
+    
+    # 🔥 STEP 3: Check required columns - agar nahi mile toh fallback
     required = ["sender_account", "receiver_account", "amount"]
     missing = [c for c in required if c not in df.columns]
-
+    
     if missing:
-        print(f"[ERROR] Missing required column(s): {missing}")
-        print(f"Detected columns: {list(df.columns)}")
-        print()
-        print("This tool expects, at minimum, a sender/payer account column,")
-        print("a receiver/payee account column, and an amount column.")
-        sys.exit(1)
-
-    df = build_datetime_column(df)
-
+        print(f"[!] Missing: {missing}")
+        print("[!] Using fallback: first 3 columns as Sender, Receiver, Amount")
+        cols = df.columns.tolist()
+        if len(cols) >= 3:
+            rename_map = {}
+            rename_map[cols[0]] = "sender_account"
+            rename_map[cols[1]] = "receiver_account"
+            rename_map[cols[2]] = "amount"
+            df = df.rename(columns=rename_map)
+            print(f"[+] Fallback mapping: {rename_map}")
+    
+    # 🔥 STEP 4: Clean amount
+    df["amount"] = df["amount"].astype(str).str.replace(',', '').str.replace('Rs', '').str.replace(' ', '').str.strip()
     df["amount"] = pd.to_numeric(df["amount"], errors="coerce")
     df = df.dropna(subset=["amount"])
     df = df[df["amount"] > 0]
-
-    df["transaction_type"] = df["transaction_type"].fillna("UNKNOWN") if "transaction_type" in df.columns else "UNKNOWN"
-    df["channel"] = df["channel"].fillna("UNKNOWN") if "channel" in df.columns else "UNKNOWN"
-
-    for optional in ("bank_name", "remarks", "reference_id"):
+    print(f"[+] Valid transactions: {len(df)}")
+    
+    if df.empty:
+        print("[ERROR] No valid transactions after cleaning.")
+        sys.exit(1)
+    
+    # 🔥 STEP 5: Datetime
+    if "datetime" in df.columns:
+        df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+    elif "date" in df.columns and "time" in df.columns:
+        combined = df["date"].astype(str).str.strip() + " " + df["time"].astype(str).str.strip()
+        df["datetime"] = pd.to_datetime(combined, errors="coerce")
+    elif "date" in df.columns:
+        df["datetime"] = pd.to_datetime(df["date"], errors="coerce")
+    else:
+        from datetime import datetime
+        df["datetime"] = datetime.now()
+        print("[!] No date found, using current time")
+    
+    df = df.dropna(subset=["datetime"])
+    
+    # 🔥 STEP 6: Optional columns
+    for optional in ("bank_name", "remarks", "reference_id", "transaction_type", "channel"):
         if optional not in df.columns:
             df[optional] = None
-
+    
+    # 🔥 STEP 7: Clean strings
     df["sender_account"] = df["sender_account"].astype(str).str.strip()
     df["receiver_account"] = df["receiver_account"].astype(str).str.strip()
-
+    
     df = df[(df["sender_account"] != "") & (df["receiver_account"] != "")]
-
+    
     if df.empty:
-        print("[ERROR] No valid transaction records found after cleaning.")
+        print("[ERROR] No valid records after cleaning.")
         sys.exit(1)
-
+    
+    print(f"[+] Final rows: {len(df)}")
     return df.sort_values("datetime").reset_index(drop=True)
 
 
@@ -816,78 +932,6 @@ def print_terminal_report(report_time, total_records, unique_accounts, total_amo
         print(f"  {pair[0]} <-> {pair[1]}   txns={count}   total_amount={format_currency(amount)}")
 
     print()
-
-
-# ============================================================
-# TXT REPORT
-# ============================================================
-
-def generate_txt_report(path, report_time, total_records, unique_accounts, total_amount,
-                         overall_risk, overall_reasons, account_results, pairs, network_flags):
-
-    with open(path, "w", encoding="utf-8") as report:
-
-        report.write("=" * 90 + "\n")
-        report.write("FINANCIAL FRAUD & MULE ACCOUNT ANALYSIS REPORT\n")
-        report.write("=" * 90 + "\n")
-        report.write(f"Generated: {report_time}\n")
-        report.write(f"Total Records       : {total_records}\n")
-        report.write(f"Unique Accounts     : {unique_accounts}\n")
-        report.write(f"Total Amount Moved  : {format_currency(total_amount)}\n")
-        report.write(f"Overall Risk        : {overall_risk}\n\n")
-
-        report.write("Overall Risk Reasons:\n")
-        for reason in overall_reasons:
-            report.write(f"  - {reason}\n")
-        report.write("\n")
-
-        if network_flags:
-            report.write("-" * 90 + "\n")
-            report.write("NETWORK RISK CROSS-CHECK (large money flows involving a LOW-risk account)\n")
-            report.write("-" * 90 + "\n")
-            for flag in network_flags:
-                report.write(
-                    f"  {flag['account_a']} (risk: {flag['risk_a']}/{flag['score_a']}) <-> "
-                    f"{flag['account_b']} (risk: {flag['risk_b']}/{flag['score_b']})   "
-                    f"txns={flag['transactions']}   total={format_currency(flag['total_amount'])}\n"
-                )
-            report.write("\n")
-
-        report.write("-" * 90 + "\n")
-        report.write("SUSPICIOUS ACCOUNT ANALYSIS\n")
-        report.write("-" * 90 + "\n\n")
-
-        for result in account_results:
-            report.write(f"#{result['rank']}  {result['account']}   "
-                         f"Risk: {result['risk']} ({result['risk_score']}/100)\n")
-            report.write(f"  Records            : {result['records']}\n")
-            report.write(f"  First Seen         : {result['first_seen']}\n")
-            report.write(f"  Last Seen          : {result['last_seen']}\n")
-            report.write(f"  Duration           : {result['duration']}\n")
-            report.write(f"  Transaction Speed  : {result['velocity']} ({result['rate']:.2f}/hour)\n")
-            report.write(f"  Unique Counterparts: {result['unique_counterparties']}\n")
-            report.write(f"  Credit Txns / Debit Txns : {result['in_count']} / {result['out_count']}\n")
-            report.write(f"  Total Credit       : {format_currency(result['total_credit'])}\n")
-            report.write(f"  Total Debit        : {format_currency(result['total_debit'])}\n")
-            report.write(f"  Net Flow           : {format_currency(result['net_flow'])}\n")
-            report.write(f"  Pass-Through Ratio : {result['pass_through_ratio']}\n")
-            report.write(f"  Same-Day In/Out Days: {result['same_day_inout_days']}\n")
-            report.write(f"  Avg / Max Amount   : {format_currency(result['avg_amount'])} / {format_currency(result['max_amount'])}\n")
-            report.write(f"  Round-Figure Txns  : {result['round_amount_count']}\n")
-            report.write(f"  Odd-Hour Records   : {result['odd_hour_count']}\n")
-            report.write(f"  Channels Used      : {result['channel_text']}\n")
-            report.write(f"  Top Counterparties : {', '.join(result['top_counterparties']) if result['top_counterparties'] else 'None'}\n")
-            report.write("  Analysis Reasons:\n")
-            for reason in result["reasons"]:
-                report.write(f"    * {reason}\n")
-            report.write("\n" + "-" * 90 + "\n\n")
-
-        report.write("TOP ACCOUNT PAIRS (LINK ANALYSIS)\n")
-        report.write("-" * 90 + "\n")
-        for pair, count, amount in pairs:
-            report.write(f"  {pair[0]} <-> {pair[1]}   txns={count}   total_amount={format_currency(amount)}\n")
-
-        report.write("\nGenerated by CyberTools FinTrack\n")
 
 
 # ============================================================
@@ -1501,28 +1545,19 @@ def main():
     report_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
     report_file_time = current_time.strftime("%Y%m%d_%H%M%S")
 
-    txt_path = os.path.join(output_dir, f"fintrack_report_{report_file_time}.txt")
+    # SIRF PDF + XLSX - baaki sab HATANA
     pdf_path = os.path.join(output_dir, f"fintrack_report_{report_file_time}.pdf")
     xlsx_path = os.path.join(output_dir, f"fintrack_report_{report_file_time}.xlsx")
-    csv_path = os.path.join(output_dir, f"fintrack_flagged_accounts_{report_file_time}.csv")
-    json_path = os.path.join(output_dir, f"fintrack_report_{report_file_time}.json")
 
     print_terminal_report(report_time, total_records, unique_accounts, total_amount,
                            overall_risk, overall_reasons, account_results, pairs, network_flags)
 
-    generate_txt_report(txt_path, report_time, total_records, unique_accounts, total_amount,
-                         overall_risk, overall_reasons, account_results, pairs, network_flags)
-
+    # SIRF PDF + XLSX generate karo
     generate_pdf_report(pdf_path, report_time, total_records, unique_accounts, total_amount,
                          overall_risk, overall_reasons, account_results, pairs, network_flags)
 
     generate_xlsx_report(xlsx_path, report_time, total_records, unique_accounts, total_amount,
                           overall_risk, overall_reasons, account_results, pairs, df, network_flags)
-
-    generate_csv_report(csv_path, account_results)
-
-    generate_json_report(json_path, report_time, total_records, unique_accounts, total_amount,
-                          overall_risk, overall_reasons, account_results, pairs, network_flags)
 
     print()
     print("=" * 70)
@@ -1530,10 +1565,7 @@ def main():
     print("Powered by CyberTools FinTrack")
     print()
     print("PDF Report Saved       :", pdf_path)
-    print("TXT Report Saved       :", txt_path)
     print("XLSX Report Saved      :", xlsx_path)
-    print("CSV (Flagged Accounts) :", csv_path)
-    print("JSON Report Saved      :", json_path)
     print("=" * 70)
     print()
 

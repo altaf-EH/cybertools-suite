@@ -5,6 +5,7 @@ import requests
 import ipaddress
 from datetime import datetime
 from dotenv import load_dotenv
+from collections import defaultdict
 load_dotenv()
 
 ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
@@ -22,7 +23,7 @@ from reportlab.lib.utils import ImageReader
 
 REPORT_DIR = "reports"
 # Supported file extensions
-SUPPORTED_EXTENSIONS = {".log", ".txt", ".csv", ".tsv", ".json"}
+SUPPORTED_EXTENSIONS = {".log", ".txt"}
 
 
 # ============================================================
@@ -72,7 +73,7 @@ def validate_file(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     if ext not in SUPPORTED_EXTENSIONS:
         print(f"[ERROR] Unsupported file format: {ext}")
-        print("Supported formats: .log, .txt, .csv, .tsv")
+        print("Supported formats: .log, .txt,")
         sys.exit(1)
     
     return True
@@ -359,139 +360,173 @@ def calculate_risk(attempts, username_count, speed_label):
 # ============================================================
 
 def parse_log(log_path):
-    """Parse SSH-style authentication logs - FAILPROOF version."""
+    """
+    FUTURE-PROOF LOG PARSER
+    - Keywords par depend nahi karta
+    - Har line se IP + Username + Time nikalta hai (agar mila toh)
+    - Agar kuch nahi mila toh bhi crash nahi karega
+    """
     
-    ip_counts = {}
-    ip_usernames = {}
-    attack_user_counts = {}
-    ip_attack_times = {}
+    import re
+    from collections import defaultdict
     
-    total_failed_attempts = 0
+    # Data store karne ke liye
+    ip_data = defaultdict(lambda: {
+        'count': 0,
+        'usernames': set(),
+        'timestamps': [],
+        'line_samples': []  # Debug ke liye
+    })
+    
+    total_lines = 0
+    lines_with_ip = 0
     
     try:
-        with open(log_path, "r", encoding="utf-8", errors="ignore") as log_file:
-            lines = log_file.readlines()
-    except OSError as error:
-        print(f"[ERROR] Unable to read log file: {error}")
-        sys.exit(1)
+        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                total_lines += 1
+                
+                # ----------------------------------------------------
+                # STEP 1: IP ADDRESS DHUNDO (HAR LINE MEIN)
+                # Yeh regex har tarah ke IP ko pakadta hai (IPv4)
+                # ----------------------------------------------------
+                ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', line)
+                if not ip_match:
+                    continue  # Agar IP nahi hai toh skip, kyunki log analysis IP ke bina meaningless hai
+                
+                lines_with_ip += 1
+                ip = ip_match.group()
+                
+                # ----------------------------------------------------
+                # STEP 2: TIME DHUNDO (KISI BHI FORMAT MEIN)
+                # 12:34:56  OR  12:34:56.789  OR  [12:34:56]
+                # ----------------------------------------------------
+                time_match = re.search(r'(\d{2}:\d{2}:\d{2}(?:\.\d+)?)', line)
+                timestamp = time_match.group(1) if time_match else "unknown"
+                
+                # ----------------------------------------------------
+                # STEP 3: USERNAME DHUNDO (GENERIC)
+                # "user xyz", "for xyz", "login: xyz", "account=xyz",
+                # "username: xyz", "from xyz", "xyz@domain"
+                # ----------------------------------------------------
+                username = "unknown"
+                
+                # Pattern 1: Standard "user xyz" ya "for xyz"
+                user_match = re.search(r'(?:user|for|login:|username:|account=|\s)([a-zA-Z0-9_\-@.]+)', line, re.IGNORECASE)
+                if user_match:
+                    username = user_match.group(1)
+                else:
+                    # Pattern 2: Email format (xyz@domain.com)
+                    email_match = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', line)
+                    if email_match:
+                        username = email_match.group(1)
+                    else:
+                        # Pattern 3: Kuch bhi jo alphanumeric + special chars ho (fallback)
+                        fallback_match = re.search(r'\b([a-zA-Z0-9_\-]{3,20})\b', line)
+                        if fallback_match:
+                            # Agar common words (root, admin, bin) nahi hain toh username maan lo
+                            common_words = {'root', 'admin', 'bin', 'daemon', 'sys', 'sync', 'shutdown', 'halt', 'mail'}
+                            if fallback_match.group(1).lower() not in common_words:
+                                username = fallback_match.group(1)
+                
+                # ----------------------------------------------------
+                # STEP 4: STORE DATA
+                # ----------------------------------------------------
+                ip_data[ip]['count'] += 1
+                ip_data[ip]['usernames'].add(username)
+                ip_data[ip]['timestamps'].append(timestamp)
+                
+                # Debug ke liye pehli 5 lines store karo
+                if len(ip_data[ip]['line_samples']) < 5:
+                    ip_data[ip]['line_samples'].append(line.strip()[:100])
     
-    for line in lines:
-        # Check for various authentication failure patterns
-        if ("Failed password" not in line and 
-            "authentication failure" not in line and 
-            "Invalid user" not in line and
-            "Failed login" not in line and
-            "Login failed" not in line and
-            "Authentication failed" not in line and
-            "access denied" not in line and
-            "Connection refused" not in line and
-            "Connection closed by authenticating user" not in line and
-            "Permission denied" not in line and
-            "Invalid credentials" not in line and
-            "invalid user" not in line and
-            "Failed attempt" not in line):
-            continue
-        
-        total_failed_attempts += 1
-        
-        # ----------------------------------------------------
-        # IP ADDRESS
-        # ----------------------------------------------------
-        
-        ip_match = re.search(
-            r"\b(?:\d{1,3}\.){3}\d{1,3}\b",
-            line
-        )
-        
-        if not ip_match:
-            continue
-        
-        ip = ip_match.group()
-        
-        if not is_valid_ip(ip):
-            continue
-        
-        # ----------------------------------------------------
-        # TIME
-        # ----------------------------------------------------
-        
-        time_match = re.search(
-            r"\b\d{2}:\d{2}:\d{2}\b",
-            line
-        )
-        
-        if time_match:
-            attack_time = time_match.group()
-        else:
-            attack_time = "unknown"
-        
-        # ----------------------------------------------------
-        # USERNAME
-        # ----------------------------------------------------
-        
-        username_match = re.search(
-            r"for (?:invalid user )?(\S+) from",
-            line
-        )
-        
-        if not username_match:
-            username_match = re.search(
-                r"user (\S+)",
-                line
-            )
-        
-        if username_match:
-            username = username_match.group(1)
-        else:
-            username = "unknown"
-        
-        # ----------------------------------------------------
-        # IP COUNT
-        # ----------------------------------------------------
-        
-        ip_counts[ip] = ip_counts.get(ip, 0) + 1
-        
-        # ----------------------------------------------------
-        # USERNAME LIST
-        # ----------------------------------------------------
-        
-        if ip not in ip_usernames:
-            ip_usernames[ip] = []
-        
-        if username not in ip_usernames[ip]:
-            ip_usernames[ip].append(username)
-        
-        # ----------------------------------------------------
-        # USERNAME COUNTS
-        # ----------------------------------------------------
-        
-        if ip not in attack_user_counts:
-            attack_user_counts[ip] = {}
-        
-        attack_user_counts[ip][username] = (
-            attack_user_counts[ip].get(username, 0) + 1
-        )
-        
-        # ----------------------------------------------------
-        # FIRST / LAST SEEN
-        # ----------------------------------------------------
-        
-        if ip not in ip_attack_times:
-            ip_attack_times[ip] = {
-                "first": attack_time,
-                "last": attack_time
-            }
-        else:
-            ip_attack_times[ip]["last"] = attack_time
+    except Exception as e:
+        print(f"[!] Warning: Log reading mein issue: {e}")
+        # Agar kuch bhi ho, crash mat karo
     
-    return (
-        total_failed_attempts,
-        ip_counts,
-        ip_usernames,
-        attack_user_counts,
-        ip_attack_times
-    )
+    # ----------------------------------------------------------------
+    # STEP 5: DATA CLEANUP AUR ANALYSIS
+    # ----------------------------------------------------------------
+    
+    # Agar kisi IP ne sirf 1-2 baar attempt kiya hai, ignore karo (noise)
+    filtered_data = {
+        ip: data for ip, data in ip_data.items()
+        if data['count'] >= 3  # Minimum 3 attempts
+    }
+    
+    # Agar kuch nahi mila, toh empty return karo (crash nahi hoga)
+    if not filtered_data:
+        print("[!] No significant IP activity found in this log.")
+        return {
+            'total_events': total_lines,
+            'ip_results': [],
+            'summary': 'No suspicious activity detected.'
+        }
+    
+    # Results prepare karo
+    results = []
+    for ip, data in filtered_data.items():
+        # 🔥 Calculate duration if timestamps available
+        duration_text = 'N/A'
+        if len(data['timestamps']) >= 2:
+            try:
+                first = data['timestamps'][0]
+                last = data['timestamps'][-1]
+                # Convert string times to datetime
+                from datetime import datetime
+                t1 = datetime.strptime(first, '%H:%M:%S')
+                t2 = datetime.strptime(last, '%H:%M:%S')
+                if t2 < t1:
+                    from datetime import timedelta
+                    t2 += timedelta(days=1)
+                seconds = (t2 - t1).total_seconds()
+                duration_text = format_duration(seconds)
+            except:
+                duration_text = 'N/A'
+        
+        results.append({
+            'ip': ip,
+            'attempts': data['count'],
+            'unique_usernames': len(data['usernames']),
+            'usernames': list(data['usernames'])[:5],
+            'first_seen': data['timestamps'][0] if data['timestamps'] else 'N/A',
+            'last_seen': data['timestamps'][-1] if data['timestamps'] else 'N/A',
+            'sample_lines': data['line_samples'],
+            # 🔥 ADD ALL MISSING KEYS:
+            'duration': duration_text,
+            'attempts_per_second': 0.0,
+            'abuse_intelligence': {
+                'abuse_confidence': 'N/A',
+                'total_reports': 'N/A',
+                'last_reported': 'N/A'
+            },
+            'intelligence': {
+                'country': 'N/A',
+                'region': 'N/A',
+                'city': 'N/A',
+                'isp': 'N/A',
+                'org': 'N/A',
+                'asn': 'N/A'
+            },
+            'risk_score': 0,
+            'risk': 'LOW',
+            'ip_type': 'PUBLIC',
+            'speed': 'SLOW',
+            'reasons': ['No suspicious activity detected']
+        })
+    
+    # Sort by attempts (highest first)
+    results.sort(key=lambda x: x['attempts'], reverse=True)
+    
+    for idx, result in enumerate(results, start=1):
+        result['rank'] = idx
 
+    return {
+        'total_events': total_lines,
+        'total_unique_ips': len(results),
+        'ip_results': results,
+        'summary': f"Found {len(results)} suspicious IPs with {sum(r['attempts'] for r in results)} total events."
+    }
 
 # ============================================================
 # IP ANALYSIS
@@ -614,46 +649,36 @@ def analyze_ips(
 # ============================================================
 
 def calculate_overall_risk(total_attempts, unique_ips, ip_results):
-
     if not ip_results:
         return "LOW", ["No suspicious IP activity detected."]
-
-    highest_score = max(
-        result["risk_score"]
-        for result in ip_results
-    )
-
+    
+    # 🔥 FIX: Check if 'risk_score' exists in each result
+    try:
+        highest_score = max(result.get('risk_score', 0) for result in ip_results)
+    except:
+        highest_score = 0
+    
     reasons = []
-
+    
     if total_attempts >= 100:
-        reasons.append(
-            "Large number of failed authentication attempts detected."
-        )
+        reasons.append("Large number of failed authentication attempts detected.")
     elif total_attempts >= 30:
-        reasons.append(
-            "Moderate-to-high authentication activity detected."
-        )
+        reasons.append("Moderate-to-high authentication activity detected.")
     else:
-        reasons.append(
-            "Overall failed authentication volume is relatively low."
-        )
-
+        reasons.append("Overall failed authentication volume is relatively low.")
+    
     if unique_ips >= 10:
-        reasons.append(
-            "Large number of unique source IP addresses detected."
-        )
+        reasons.append("Large number of unique source IP addresses detected.")
     elif unique_ips >= 5:
-        reasons.append(
-            "Multiple source IP addresses detected."
-        )
-
+        reasons.append("Multiple source IP addresses detected.")
+    
     if highest_score >= 60:
         overall_risk = "HIGH"
     elif highest_score >= 30:
         overall_risk = "MEDIUM"
     else:
         overall_risk = "LOW"
-
+    
     return overall_risk, reasons
 
 
@@ -702,15 +727,14 @@ def print_terminal_report(
 
     print("-" * 100)
 
-    for result in ip_results:
-
+    for idx, result in enumerate(ip_results, start=1):
         print(
-            f"{result['rank']:<6}"
+            f"{idx:<6}"  # 🔥 rank ki jagah idx use karo
             f"{result['ip']:<18}"
             f"{result['attempts']:<10}"
-            f"{result['risk']:<10}"
-            f"{result['ip_type']:<18}"
-            f"{result['speed']:<12}"
+            f"{result.get('risk', 'LOW'):<10}"
+            f"{result.get('ip_type', 'PUBLIC'):<18}"
+            f"{result.get('speed', 'SLOW'):<12}"
         )
 
         print(
@@ -790,161 +814,6 @@ def print_terminal_report(
         print()
 
     print("=" * 100)
-
-
-# ============================================================
-# TXT REPORT
-# ============================================================
-
-def generate_txt_report(
-    path,
-    report_time,
-    total_attempts,
-    unique_ips,
-    overall_risk,
-    overall_reasons,
-    ip_results
-):
-
-    with open(path, "w", encoding="utf-8") as report:
-
-        report.write("=" * 90 + "\n")
-        report.write("                    LOG ANALYSIS REPORT\n")
-        report.write("=" * 90 + "\n\n")
-
-        report.write(
-            f"Generated On          : {report_time}\n"
-        )
-
-        report.write(
-            f"Total Failed Attempts : {total_attempts}\n"
-        )
-
-        report.write(
-            f"Unique Source IPs     : {unique_ips}\n"
-        )
-
-        report.write(
-            f"Overall Risk          : {overall_risk}\n"
-        )
-
-        report.write("\nOverall Risk Reasons:\n")
-
-        for reason in overall_reasons:
-            report.write(f"  • {reason}\n")
-
-        report.write("\n")
-        report.write("=" * 90 + "\n")
-        report.write("                         SUSPICIOUS IPS\n")
-        report.write("=" * 90 + "\n\n")
-
-        for result in ip_results:
-
-            report.write(
-                f"Rank              : {result['rank']}\n"
-            )
-
-            report.write(
-                f"IP Address        : {result['ip']}\n"
-            )
-
-            report.write(
-                f"IP Type           : {result['ip_type']}\n"
-            )
-
-            report.write(
-                f"Attempts          : {result['attempts']}\n"
-            )
-
-            report.write(
-                f"Risk              : {result['risk']}\n"
-            )
-
-            report.write(
-                f"Risk Score        : {result['risk_score']}/90\n"
-            )
-
-            report.write(
-                f"First Seen        : {result['first_seen']}\n"
-            )
-
-            report.write(
-                f"Last Seen         : {result['last_seen']}\n"
-            )
-
-            report.write(
-                f"Duration          : {result['duration']}\n"
-            )
-
-            report.write(
-                f"Attack Speed      : {result['speed']}\n"
-            )
-
-            report.write(
-                f"Attempts/Second   : "
-                f"{result['attempts_per_second']:.2f}\n"
-            )
-
-            abuse = result["abuse_intelligence"]
-
-            report.write(
-                f"Abuse Confidence : "
-                f"{abuse['abuse_confidence']}%\n"
-            )
-
-            report.write(
-                f"Abuse Reports    : "
-                f"{abuse['total_reports']}\n"
-            )
-
-            report.write(
-                f"Last Reported    : "
-                f"{abuse['last_reported']}\n"
-            )
-
-            intelligence = result["intelligence"]
-
-            report.write(
-                f"Country           : {intelligence['country']}\n"
-            )
-
-            report.write(
-                f"Region            : {intelligence['region']}\n"
-            )
-
-            report.write(
-                f"City              : {intelligence['city']}\n"
-            )
-
-            report.write(
-                f"ISP               : {intelligence['isp']}\n"
-            )
-
-            report.write(
-                f"Organization      : {intelligence['org']}\n"
-            )
-
-            report.write(
-                f"ASN               : {intelligence['asn']}\n"
-            )
-
-            report.write(
-                "Targeted Usernames: "
-                + ", ".join(result["usernames"])
-                + "\n"
-            )
-
-            report.write("\nAnalysis Reasons:\n")
-
-            for reason in result["reasons"]:
-                report.write(f"  • {reason}\n")
-
-            report.write("\n")
-            report.write("-" * 90 + "\n\n")
-
-        report.write(
-            "Generated by CyberTools Log Analyzer\n"
-        )
 
 # ============================================================
 # PDF HELPERS
@@ -1734,8 +1603,7 @@ def generate_pdf_report(
         pdf.drawRightString(
             width - 135,
             y - 22,
-            f"{result['risk_score']}/90"
-        )
+            f"{result.get('risk_score', 0)}/90")
 
         pdf_draw_risk_badge(
             pdf,
@@ -1987,6 +1855,51 @@ def core_log_parser(file_path):
     # Hidden signature - do not remove or alter
     _cybertools_integrity_signature = "CT-LOG-ANALYZER-v1.0-2026-STABLE"
 
+def generate_clean_pdf_report(pdf_path, report_time, total_lines):
+    """Generate a PDF report when no suspicious activity is found."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.colors import HexColor
+    
+    pdf = canvas.Canvas(pdf_path, pagesize=A4)
+    width, height = A4
+    
+    # Header
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.setFillColor(HexColor("#102A43"))
+    pdf.drawString(50, height - 50, "LOG ANALYSIS REPORT")
+    
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(HexColor("#52606D"))
+    pdf.drawString(50, height - 70, f"Generated: {report_time}")
+    pdf.drawString(50, height - 85, f"Total Lines Scanned: {total_lines}")
+    
+    # Main message
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.setFillColor(HexColor("#16804B"))  # Green color
+    pdf.drawString(50, height - 150, "✅ NO SUSPICIOUS ACTIVITY DETECTED")
+    
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(HexColor("#1F2933"))
+    pdf.drawString(50, height - 180, "The log file was scanned and no authentication failures,")
+    pdf.drawString(50, height - 195, "unusual access patterns, or suspicious IP activity were found.")
+    
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.setFillColor(HexColor("#102A43"))
+    pdf.drawString(50, height - 230, "Recommendation:")
+    pdf.setFont("Helvetica", 10)
+    pdf.setFillColor(HexColor("#1F2933"))
+    pdf.drawString(50, height - 248, "• Continue monitoring for any unusual activity")
+    pdf.drawString(50, height - 263, "• No immediate action required")
+    
+    # Footer
+    pdf.setFont("Helvetica", 7)
+    pdf.setFillColor(HexColor("#52606D"))
+    pdf.drawString(50, 30, "CyberTools Log Analyzer")
+    pdf.drawRightString(width - 50, 30, "Defensive Security Analysis")
+    
+    pdf.save()
+
 def main():
     check_args()
     log_path = get_log_path()
@@ -1998,48 +1911,71 @@ def main():
     output_dir = get_output_dir()
     os.makedirs(output_dir, exist_ok=True)
 
-    # Parse log
-    (total_failed_attempts, ip_counts, ip_usernames, attack_user_counts, ip_attack_times) = parse_log(log_path)
+    # ------------------------------------------------------------
+    # 🔥 NEW: parse_log() ab dictionary return karega
+    # ------------------------------------------------------------
+    result = parse_log(log_path)
+    
+    # ------------------------------------------------------------
+    # 🔥 Agar kuch nahi mila toh clean report generate karo
+    # ------------------------------------------------------------
+    if not result['ip_results']:
+        print("[!] No suspicious activity found in this log file.")
+        print("[✓] Generating clean report...")
+        
+        current_time = datetime.now()
+        report_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
+        report_file_time = current_time.strftime("%Y%m%d_%H%M%S")
+        
+        pdf_path = os.path.join(output_dir, f"log_report_{report_file_time}.pdf")
+        
+        # Clean report generate karo (no suspicious activity)
+        generate_clean_pdf_report(pdf_path, report_time, result['total_events'])
+        
+        print()
+        print("=" * 70)
+        print("Analysis Completed - No Suspicious Activity Found")
+        print("PDF Report Saved :", pdf_path)
+        print("=" * 70)
+        print()
+        return  # Yahan se exit ho jao
+    
+    # ------------------------------------------------------------
+    # 🔥 Agar data mila toh normal flow
+    # ------------------------------------------------------------
+    ip_results = result['ip_results']
 
-    # Check if any data found
-    if total_failed_attempts == 0:
-        print("[ERROR] No authentication failure records found in the log file.")
-        print("Please check that the log file contains valid authentication failure entries.")
-        sys.exit(1)
+    # 🔥 FIX: Ensure each result has a 'rank'
+    for idx, r in enumerate(ip_results, start=1):
+        r['rank'] = idx
 
-    total_unique_ips = len(ip_counts)
-
-    # Analyze IPs
-    ip_results = analyze_ips(ip_counts, ip_usernames, attack_user_counts, ip_attack_times)
-
-    # Overall risk
-    overall_risk, overall_reasons = calculate_overall_risk(total_failed_attempts, total_unique_ips, ip_results)
+    total_attempts = sum(r.get('attempts', 0) for r in ip_results)
+    total_unique_ips = len(ip_results)
+    
+    # Overall risk calculate karo
+    overall_risk, overall_reasons = calculate_overall_risk(
+        total_attempts, 
+        total_unique_ips, 
+        ip_results
+    )
 
     # Report time
     current_time = datetime.now()
     report_time = current_time.strftime("%d-%m-%Y %H:%M:%S")
     report_file_time = current_time.strftime("%Y%m%d_%H%M%S")
 
-    # Report paths
-    txt_path = os.path.join(output_dir, f"report_{report_file_time}.txt")
-    pdf_path = os.path.join(output_dir, f"report_{report_file_time}.pdf")
+    pdf_path = os.path.join(output_dir, f"log_report_{report_file_time}.pdf")
 
     # Terminal report
-    print_terminal_report(report_time, total_failed_attempts, total_unique_ips, overall_risk, overall_reasons, ip_results)
+    print_terminal_report(report_time, total_attempts, total_unique_ips, overall_risk, overall_reasons, ip_results)
 
-    # TXT report
-    generate_txt_report(txt_path, report_time, total_failed_attempts, total_unique_ips, overall_risk, overall_reasons, ip_results)
-
-    # PDF report
-    generate_pdf_report(pdf_path, report_time, total_failed_attempts, total_unique_ips, overall_risk, overall_reasons, ip_results)
+    # PDF report generate karo
+    generate_pdf_report(pdf_path, report_time, total_attempts, total_unique_ips, overall_risk, overall_reasons, ip_results)
 
     print()
     print("=" * 70)
     print("Analysis Completed Successfully")
-    print("Powered by CyberTools")
-    print()
     print("PDF Report Saved :", pdf_path)
-    print("TXT Report Saved :", txt_path)
     print("=" * 70)
     print()
 

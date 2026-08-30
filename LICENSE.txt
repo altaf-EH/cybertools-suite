@@ -1,22 +1,37 @@
-CYBERTOOLS SUITE
+CyberTools Suite — Strict License v1.0
 Copyright (c) 2026 CyberTools. All Rights Reserved.
 
-This software and all associated files, documentation, and materials
-are the exclusive property of CyberTools and are protected by
-international copyright laws.
+1. GRANT OF LICENSE
+This software is provided free of charge for:
+   - Law Enforcement Agencies (Cyber Cell, Police, etc.)
+   - Government Investigative Bodies
+   - Authorized Security Researchers
+   - Personal, Non-Commercial Investigative Use
 
-Unauthorized copying, distribution, modification, or commercial use
-of this software, in whole or in part, is strictly prohibited.
+2. PROHIBITED USES
+You are strictly PROHIBITED from:
+   - Selling, reselling, or sublicensing this software
+   - Using this software for any commercial purpose
+   - Modifying, reverse-engineering, or decompiling the software
+   - Removing or altering any copyright notices
+   - Using this software for illegal or unethical activities
+   - Creating derivative works without explicit written permission
 
-By installing and using this software, you agree to:
+3. NO WARRANTY
+This software is provided "AS IS" without any warranty of any kind.
+The author assumes no responsibility for any misuse of this tool.
 
-1. Use this software only for authorized investigations and legitimate purposes.
-2. Not redistribute, sell, or license this software to third parties.
-3. Not modify, reverse engineer, or create derivative works.
-4. Not remove or alter any copyright notices or branding.
-5. Accept that this software is provided "as is" without warranty of any kind.
+4. LIABILITY
+The user assumes full responsibility for:
+   - Compliance with local cyber laws
+   - Proper handling of sensitive data (CDRs, financial records, logs)
+   - Any legal consequences arising from the use of this tool
 
-For licensing inquiries, contact: CyberTools
+5. ATTRIBUTION
+Any public use, presentation, or reference to this software must include:
+   "CyberTools Suite — Developed by Altaf (c) 2026"
 
-This software may include third-party libraries and components,
-each with their own respective licenses.
+6. GOVERNING LAW
+This license shall be governed by the laws of India.
+
+For commercial licensing inquiries, contact: altafreza90000@gmail.com
