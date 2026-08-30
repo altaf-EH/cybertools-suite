@@ -145,15 +145,15 @@ See `LICENSE.txt` for full details.
 
 ## 👨‍💻 Developer
 
-**CyberTools Team (c) 2026**
+**Altaf (c) 2026**
 
 ---
 
 ## 📞 Contact
 
 For queries, feedback, or commercial licensing:
-- Email: `[your-email]`
-- GitHub Issues: `[your-repo-url]`
+- Email: altafreza90000@gmail.com
+- GitHub Issues: https://github.com/altaf-EH
 
 ---
 
